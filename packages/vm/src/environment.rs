@@ -189,12 +189,15 @@ impl<A: BackendApi, S: Storage, Q: Querier> Environment<A, S, Q> {
         // Clone function before calling it to avoid dead locks
         let func = self.with_wasmer_instance(|instance| {
             let mut func_name = name;
-            if func_name == "execute" {
-                func_name = "handle";
-            } else if func_name == "instantiate" {
-                func_name = "init";
+            // try with fallback handle for execute and init for instantiate
+            if !instance.exports.contains(func_name) {
+                if func_name == "execute" {
+                    func_name = "handle";
+                } else if func_name == "instantiate" {
+                    func_name = "init";
+                }
             }
-
+            // get export function
             let func = instance.exports.get_function(func_name)?;
             Ok(func.clone())
         })?;
