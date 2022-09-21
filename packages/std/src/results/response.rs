@@ -77,7 +77,7 @@ where
     /// Optional list of "subcalls" to make. These will be executed in order
     /// (and this contract's subcall_response entry point invoked)
     /// *before* any of the "fire and forget" messages get executed.
-    pub submessages: Vec<SubMsg<T>>,
+    pub submessages: Option<Vec<SubMsg<T>>>,
     /// After any submessages are processed, these are all dispatched in the host blockchain.
     /// If they all succeed, then the transaction is committed. If any fail, then the transaction
     /// and any local contract state changes are reverted.
@@ -93,7 +93,7 @@ where
 {
     fn default() -> Self {
         Response {
-            submessages: vec![],
+            submessages: Some(vec![]),
             messages: vec![],
             attributes: vec![],
             data: None,
@@ -133,7 +133,7 @@ where
             gas_limit,
             reply_on,
         };
-        self.submessages.push(sub);
+        self.submessages.as_mut().unwrap().push(sub);
     }
 
     pub fn set_data<U: Into<Binary>>(&mut self, data: U) {

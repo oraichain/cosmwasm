@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::addresses::Addr;
 use crate::coins::Coin;
-use crate::timestamp::Timestamp;
+// use crate::timestamp::Timestamp;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Env {
@@ -57,7 +57,9 @@ pub struct BlockInfo {
     /// # };
     /// let millis = env.block.time.nanos() / 1_000_000;
     /// ```
-    pub time: Timestamp,
+    // pub time: Timestamp,
+    pub time: u64,
+    pub time_nanos: u64,
     pub chain_id: String,
 }
 
@@ -83,7 +85,7 @@ pub struct MessageInfo {
     /// The funds that are sent to the contract as part of `MsgInstantiateContract`
     /// or `MsgExecuteContract`. The transfer is processed in bank before the contract
     /// is executed such that the new balance is visible during contract execution.
-    pub funds: Vec<Coin>,
+    pub sent_funds: Vec<Coin>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]

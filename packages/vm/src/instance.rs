@@ -114,6 +114,16 @@ where
             Function::new_native_with_env(store, env.clone(), native_addr_validate),
         );
 
+        env_imports.insert(
+            "canonicalize_address",
+            Function::new_native_with_env(store, env.clone(), native_addr_canonicalize),
+        );
+
+        env_imports.insert(
+            "humanize_address",
+            Function::new_native_with_env(store, env.clone(), native_addr_humanize),
+        );
+
         // Reads human address from source_ptr and writes canonicalized representation to destination_ptr.
         // A prepared and sufficiently large memory Region is expected at destination_ptr that points to pre-allocated memory.
         // Returns 0 on success. Returns a non-zero memory location to a Region containing an UTF-8 encoded error string for invalid inputs.

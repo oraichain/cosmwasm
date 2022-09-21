@@ -14,7 +14,9 @@ const SUPPORTED_IMPORTS: &[&str] = &[
     "env.db_write",
     "env.db_remove",
     "env.addr_validate",
+    "env.canonicalize_address",
     "env.addr_canonicalize",
+    "env.humanize_address",
     "env.addr_humanize",
     "env.secp256k1_verify",
     "env.secp256k1_recover_pubkey",
@@ -32,8 +34,8 @@ const SUPPORTED_IMPORTS: &[&str] = &[
 /// Other optional exports exist, e.g. "execute", "migrate" and "query".
 /// This is unlikely to change much, must be frozen at 1.0 to avoid breaking existing contracts
 const REQUIRED_EXPORTS: &[&str] = &[
-    "interface_version_5",
-    "instantiate",
+    // "interface_version_5",
+    // "instantiate",
     "allocate",
     "deallocate",
 ];

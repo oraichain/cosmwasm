@@ -1,5 +1,13 @@
 use cosmwasm_std::testing::{digit_sum, riffle_shuffle};
-use cosmwasm_std::{Addr, BlockInfo, Coin, ContractInfo, Env, MessageInfo, Timestamp};
+use cosmwasm_std::{
+    Addr,
+    BlockInfo,
+    Coin,
+    ContractInfo,
+    Env,
+    MessageInfo,
+    // Timestamp
+};
 
 use super::querier::MockQuerier;
 use super::storage::MockStorage;
@@ -144,7 +152,8 @@ pub fn mock_env() -> Env {
     Env {
         block: BlockInfo {
             height: 12_345,
-            time: Timestamp::from_nanos(1_571_797_419_879_305_533),
+            time: 1_571_797_419_879_305_533,
+            time_nanos: 879305533,
             chain_id: "cosmos-testnet-14002".to_string(),
         },
         contract: ContractInfo {
@@ -158,7 +167,7 @@ pub fn mock_env() -> Env {
 pub fn mock_info(sender: &str, funds: &[Coin]) -> MessageInfo {
     MessageInfo {
         sender: Addr::unchecked(sender),
-        funds: funds.to_vec(),
+        sent_funds: funds.to_vec(),
     }
 }
 
@@ -175,7 +184,7 @@ mod tests {
             info,
             MessageInfo {
                 sender: Addr::unchecked("my name"),
-                funds: vec![Coin {
+                sent_funds: vec![Coin {
                     amount: 100u128.into(),
                     denom: "atom".into(),
                 }]
