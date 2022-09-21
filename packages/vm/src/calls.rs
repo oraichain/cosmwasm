@@ -1,10 +1,12 @@
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::fmt;
 use wasmer::Val;
 
-use cosmwasm_std::{Coin, ContractResult, Env, MessageInfo, QueryResponse, Reply, Response};
+use cosmwasm_std::{
+    Coin, ContractInfo, ContractResult, Env, MessageInfo, QueryResponse, Reply, Response,
+};
 
 use crate::backend::{BackendApi, Querier, Storage};
 use crate::conversion::ref_to_u32;
@@ -19,10 +21,24 @@ const MAX_LENGTH_SUDO: usize = 100_000;
 const MAX_LENGTH_SUBCALL_RESPONSE: usize = 100_000;
 const MAX_LENGTH_QUERY: usize = 100_000;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 struct MessageInfoV0_13_2 {
     pub sender: String,
     pub sent_funds: Vec<Coin>,
+}
+
+#[derive(Serialize)]
+pub struct EnvV0_13_2 {
+    pub block: BlockInfoV0_13_2,
+    pub contract: ContractInfo,
+}
+
+#[derive(Serialize)]
+pub struct BlockInfoV0_13_2 {
+    pub height: u64,
+    pub time: u64,
+    pub time_nanos: u64,
+    pub chain_id: String,
 }
 
 pub fn call_instantiate<A, S, Q, U>(
@@ -138,6 +154,28 @@ where
     Ok(result)
 }
 
+fn get_old_args(env: &[u8], info: &[u8]) -> VmResult<(Vec<u8>, Vec<u8>)> {
+    let info_struct: MessageInfo = from_slice(info)?;
+    let old_info_struct = MessageInfoV0_13_2 {
+        sender: info_struct.sender.to_string(),
+        sent_funds: info_struct.funds,
+    };
+
+    let env_struct: Env = from_slice(env)?;
+    let old_env_struct = EnvV0_13_2 {
+        block: BlockInfoV0_13_2 {
+            // time in seconds
+            time: env_struct.block.time.nanos() / 1_000_000_000,
+            time_nanos: env_struct.block.time.nanos(),
+            height: env_struct.block.height,
+            chain_id: env_struct.block.chain_id,
+        },
+        contract: env_struct.contract,
+    };
+
+    Ok((to_vec(&old_env_struct)?, to_vec(&old_info_struct)?))
+}
+
 /// Calls Wasm export "instantiate" and returns raw data from the contract.
 /// The result is length limited to prevent abuse but otherwise unchecked.
 pub fn call_instantiate_raw<A, S, Q>(
@@ -158,15 +196,12 @@ where
         .is_ok()
     {
         // this can be called from vm go
-        let info_struct: MessageInfo = from_slice(info)?;
-        let old_info_struct = MessageInfoV0_13_2 {
-            sender: info_struct.sender.to_string(),
-            sent_funds: info_struct.funds,
-        };
+        let (old_env, old_info) = get_old_args(env, info)?;
+
         return call_raw(
             instance,
             "init",
-            &[env, to_vec(&old_info_struct)?.as_slice(), msg],
+            &[&old_env, &old_info, msg],
             MAX_LENGTH_INIT,
         );
     }
@@ -193,16 +228,12 @@ where
         .is_ok()
     {
         // this can be called from vm go
-        let info_struct: MessageInfo = from_slice(info)?;
-        let old_info_struct = MessageInfoV0_13_2 {
-            sender: info_struct.sender.to_string(),
-            sent_funds: info_struct.funds,
-        };
+        let (old_env, old_info) = get_old_args(env, info)?;
 
         return call_raw(
             instance,
             "handle",
-            &[env, to_vec(&old_info_struct)?.as_slice(), msg],
+            &[&old_env, &old_info, msg],
             MAX_LENGTH_EXECUTE,
         );
     }
