@@ -69,7 +69,8 @@ use crate::results::SubMsg;
 ///     Ok(response)
 /// }
 /// ```
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+/// we remove JsonSchema because this build is for cosmwasm_vm only, not for generating smart contract schema
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Response<T = Empty>
 where
     T: Clone + fmt::Debug + PartialEq + JsonSchema,
@@ -77,7 +78,9 @@ where
     /// Optional list of "subcalls" to make. These will be executed in order
     /// (and this contract's subcall_response entry point invoked)
     /// *before* any of the "fire and forget" messages get executed.
-    pub submessages: Option<Vec<SubMsg<T>>>,
+    /// If the value is not present when deserializing, use the Default::default()
+    #[serde(default = "Vec::default")]
+    pub submessages: Vec<SubMsg<T>>,
     /// After any submessages are processed, these are all dispatched in the host blockchain.
     /// If they all succeed, then the transaction is committed. If any fail, then the transaction
     /// and any local contract state changes are reverted.
@@ -93,7 +96,7 @@ where
 {
     fn default() -> Self {
         Response {
-            submessages: Some(vec![]),
+            submessages: vec![],
             messages: vec![],
             attributes: vec![],
             data: None,
@@ -133,7 +136,7 @@ where
             gas_limit,
             reply_on,
         };
-        self.submessages.as_mut().unwrap().push(sub);
+        self.submessages.push(sub);
     }
 
     pub fn set_data<U: Into<Binary>>(&mut self, data: U) {

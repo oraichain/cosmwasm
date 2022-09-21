@@ -167,7 +167,7 @@ pub fn mock_env() -> Env {
 pub fn mock_info(sender: &str, funds: &[Coin]) -> MessageInfo {
     MessageInfo {
         sender: Addr::unchecked(sender),
-        sent_funds: funds.to_vec(),
+        funds: funds.to_vec(),
     }
 }
 
@@ -184,7 +184,7 @@ mod tests {
             info,
             MessageInfo {
                 sender: Addr::unchecked("my name"),
-                sent_funds: vec![Coin {
+                funds: vec![Coin {
                     amount: 100u128.into(),
                     denom: "atom".into(),
                 }]

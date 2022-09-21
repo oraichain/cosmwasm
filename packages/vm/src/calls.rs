@@ -1,9 +1,10 @@
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use wasmer::Val;
 
-use cosmwasm_std::{ContractResult, Env, MessageInfo, QueryResponse, Reply, Response};
+use cosmwasm_std::{Coin, ContractResult, Env, MessageInfo, QueryResponse, Reply, Response};
 
 use crate::backend::{BackendApi, Querier, Storage};
 use crate::conversion::ref_to_u32;
@@ -17,6 +18,12 @@ const MAX_LENGTH_MIGRATE: usize = 100_000;
 const MAX_LENGTH_SUDO: usize = 100_000;
 const MAX_LENGTH_SUBCALL_RESPONSE: usize = 100_000;
 const MAX_LENGTH_QUERY: usize = 100_000;
+
+#[derive(Serialize, Deserialize)]
+struct MessageInfoV0_13_2 {
+    pub sender: String,
+    pub sent_funds: Vec<Coin>,
+}
 
 pub fn call_instantiate<A, S, Q, U>(
     instance: &mut Instance<A, S, Q>,
@@ -145,6 +152,24 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
+
+    if instance
+        .call_function0("cosmwasm_vm_version_4", &[])
+        .is_ok()
+    {
+        // this can be called from vm go
+        let info_struct: MessageInfo = from_slice(info)?;
+        let old_info_struct = MessageInfoV0_13_2 {
+            sender: info_struct.sender.to_string(),
+            sent_funds: info_struct.funds,
+        };
+        return call_raw(
+            instance,
+            "init",
+            &[env, to_vec(&old_info_struct)?.as_slice(), msg],
+            MAX_LENGTH_INIT,
+        );
+    }
     call_raw(instance, "instantiate", &[env, info, msg], MAX_LENGTH_INIT)
 }
 
@@ -162,6 +187,26 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
+
+    if instance
+        .call_function0("cosmwasm_vm_version_4", &[])
+        .is_ok()
+    {
+        // this can be called from vm go
+        let info_struct: MessageInfo = from_slice(info)?;
+        let old_info_struct = MessageInfoV0_13_2 {
+            sender: info_struct.sender.to_string(),
+            sent_funds: info_struct.funds,
+        };
+
+        return call_raw(
+            instance,
+            "handle",
+            &[env, to_vec(&old_info_struct)?.as_slice(), msg],
+            MAX_LENGTH_EXECUTE,
+        );
+    }
+
     call_raw(instance, "execute", &[env, info, msg], MAX_LENGTH_EXECUTE)
 }
 
