@@ -112,17 +112,7 @@ where
         env_imports.insert(
             "addr_validate",
             Function::new_native_with_env(store, env.clone(), native_addr_validate),
-        );
-
-        env_imports.insert(
-            "canonicalize_address",
-            Function::new_native_with_env(store, env.clone(), native_addr_canonicalize),
-        );
-
-        env_imports.insert(
-            "humanize_address",
-            Function::new_native_with_env(store, env.clone(), native_addr_humanize),
-        );
+        );        
 
         // Reads human address from source_ptr and writes canonicalized representation to destination_ptr.
         // A prepared and sufficiently large memory Region is expected at destination_ptr that points to pre-allocated memory.
@@ -208,6 +198,17 @@ where
         env_imports.insert(
             "db_next",
             Function::new_native_with_env(store, env.clone(), native_db_next),
+        );
+
+        // old support
+        env_imports.insert(
+            "canonicalize_address",
+            Function::new_native_with_env(store, env.clone(), native_addr_canonicalize),
+        );
+
+        env_imports.insert(
+            "humanize_address",
+            Function::new_native_with_env(store, env.clone(), native_addr_humanize),
         );
 
         import_obj.register("env", env_imports);
