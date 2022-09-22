@@ -10,6 +10,7 @@ use std::fmt;
 
 use crate::backend::{BackendApi, Querier, Storage};
 use crate::calls::call_raw;
+use crate::calls::{get_old_env, is_old_instance};
 use crate::errors::VmResult;
 use crate::instance::Instance;
 use crate::serde::{from_slice, to_vec};
@@ -134,6 +135,16 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "ibc_channel_open",
+            &[&get_old_env(env)?, channel],
+            MAX_LENGTH_IBC,
+        );
+    }
+
     call_raw(
         instance,
         "ibc_channel_open",
@@ -153,6 +164,16 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "ibc_channel_connect",
+            &[&get_old_env(env)?, channel],
+            MAX_LENGTH_IBC,
+        );
+    }
+
     call_raw(
         instance,
         "ibc_channel_connect",
@@ -172,6 +193,16 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "ibc_channel_close",
+            &[&get_old_env(env)?, channel],
+            MAX_LENGTH_IBC,
+        );
+    }
+
     call_raw(
         instance,
         "ibc_channel_close",
@@ -191,6 +222,16 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "ibc_packet_receive",
+            &[&get_old_env(env)?, packet],
+            MAX_LENGTH_IBC,
+        );
+    }
+
     call_raw(
         instance,
         "ibc_packet_receive",
@@ -210,6 +251,16 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "ibc_packet_ack",
+            &[&get_old_env(env)?, ack],
+            MAX_LENGTH_IBC,
+        );
+    }
+
     call_raw(instance, "ibc_packet_ack", &[env, ack], MAX_LENGTH_IBC)
 }
 
@@ -224,6 +275,16 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "ibc_packet_timeout",
+            &[&get_old_env(env)?, packet],
+            MAX_LENGTH_IBC,
+        );
+    }
+
     call_raw(
         instance,
         "ibc_packet_timeout",

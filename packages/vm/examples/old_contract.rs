@@ -1,8 +1,9 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 use tempfile::TempDir;
 
 use cosmwasm_std::{coins, from_slice, to_vec, ContractResult, QueryResponse};
-use cosmwasm_vm::testing::{mock_backend, mock_env, mock_info, MockApi};
+use cosmwasm_vm::testing::{mock_backend, mock_env, mock_info};
 use cosmwasm_vm::{
     call_execute_raw, call_instantiate_raw, call_query_raw, Cache, CacheOptions, InstanceOptions,
     Size,
@@ -23,7 +24,7 @@ static CONTRACT: &[u8] = include_bytes!("../testdata/oraichain_nft.wasm");
 pub fn main() {
     let options = CacheOptions {
         base_dir: TempDir::new().unwrap().into_path(),
-        supported_features: features_from_csv("staking"),
+        supported_features: HashSet::default(),
         memory_cache_size: MEMORY_CACHE_SIZE,
         instance_memory_limit: DEFAULT_MEMORY_LIMIT,
     };
