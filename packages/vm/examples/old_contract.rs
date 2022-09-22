@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::sync::Arc;
 use tempfile::TempDir;
 
 use cosmwasm_std::{coins, from_slice, to_vec, ContractResult, QueryResponse};
@@ -29,7 +28,7 @@ pub fn main() {
         instance_memory_limit: DEFAULT_MEMORY_LIMIT,
     };
 
-    let cache = Arc::new(unsafe { Cache::new(options).unwrap() });
+    let cache = unsafe { Cache::new(options).unwrap() };
 
     let checksum = cache.save_wasm(CONTRACT).unwrap();
     let mut backend = mock_backend(&[]);
