@@ -41,6 +41,43 @@ pub struct BlockInfoV0_13_2 {
     pub chain_id: String,
 }
 
+fn get_old_env(env: &[u8]) -> VmResult<Vec<u8>> {
+    let env_struct: Env = from_slice(env, 1024)?;
+    let old_env_struct = EnvV0_13_2 {
+        block: BlockInfoV0_13_2 {
+            // time in seconds
+            time: env_struct.block.time.nanos() / 1_000_000_000,
+            time_nanos: env_struct.block.time.nanos(),
+            height: env_struct.block.height,
+            chain_id: env_struct.block.chain_id,
+        },
+        contract: env_struct.contract,
+    };
+
+    to_vec(&old_env_struct)
+}
+
+fn get_old_info(info: &[u8]) -> VmResult<Vec<u8>> {
+    let info_struct: MessageInfo = from_slice(info, 1024)?;
+    let old_info_struct = MessageInfoV0_13_2 {
+        sender: info_struct.sender.to_string(),
+        sent_funds: info_struct.funds,
+    };
+
+    to_vec(&old_info_struct)
+}
+
+fn is_old_instance<A, S, Q>(instance: &mut Instance<A, S, Q>) -> bool
+where
+    A: BackendApi + 'static,
+    S: Storage + 'static,
+    Q: Querier + 'static,
+{
+    instance
+        .call_function0("cosmwasm_vm_version_4", &[])
+        .is_ok()
+}
+
 pub fn call_instantiate<A, S, Q, U>(
     instance: &mut Instance<A, S, Q>,
     env: &Env,
@@ -191,18 +228,14 @@ where
 {
     instance.set_storage_readonly(false);
 
-    if instance
-        .call_function0("cosmwasm_vm_version_4", &[])
-        .is_ok()
-    {
+    if is_old_instance(instance) {
         // this can be called from vm go
-        let (old_env, old_info) = get_old_args(env, info)?;
 
         return call_raw(
             instance,
             "init",
-            &[&old_env, &old_info, msg],
-            MAX_LENGTH_INIT,
+            &[&get_old_env(env)?, &get_old_info(info)?, msg],
+            read_limits::RESULT_INSTANTIATE,
         );
     }
     call_raw(instance, "instantiate", &[env, info, msg], MAX_LENGTH_INIT)
@@ -223,18 +256,13 @@ where
 {
     instance.set_storage_readonly(false);
 
-    if instance
-        .call_function0("cosmwasm_vm_version_4", &[])
-        .is_ok()
-    {
+    if is_old_instance(instance) {
         // this can be called from vm go
-        let (old_env, old_info) = get_old_args(env, info)?;
-
         return call_raw(
             instance,
             "handle",
-            &[&old_env, &old_info, msg],
-            MAX_LENGTH_EXECUTE,
+            &[&get_old_env(env)?, &get_old_info(info)?, msg],
+            read_limits::RESULT_EXECUTE,
         );
     }
 
@@ -254,7 +282,22 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
-    call_raw(instance, "migrate", &[env, msg], MAX_LENGTH_MIGRATE)
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "migrate",
+            &[&get_old_env(env)?, msg],
+            read_limits::RESULT_MIGRATE,
+        );
+    };
+
+    call_raw(
+        instance,
+        "migrate",
+        &[env, msg],
+        read_limits::RESULT_MIGRATE,
+    )
 }
 
 /// Calls Wasm export "sudo" and returns raw data from the contract.
@@ -270,7 +313,17 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
-    call_raw(instance, "sudo", &[env, msg], MAX_LENGTH_SUDO)
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "sudo",
+            &[&get_old_env(env)?, msg],
+            read_limits::RESULT_SUDO,
+        );
+    };
+
+    call_raw(instance, "sudo", &[env, msg], read_limits::RESULT_SUDO)
 }
 
 /// Calls Wasm export "reply" and returns raw data from the contract.
@@ -286,7 +339,17 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
-    call_raw(instance, "reply", &[env, msg], MAX_LENGTH_SUBCALL_RESPONSE)
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "reply",
+            &[&get_old_env(env)?, msg],
+            read_limits::RESULT_REPLY,
+        );
+    };
+
+    call_raw(instance, "reply", &[env, msg], read_limits::RESULT_REPLY)
 }
 
 /// Calls Wasm export "query" and returns raw data from the contract.
@@ -302,7 +365,197 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(true);
-    call_raw(instance, "query", &[env, msg], MAX_LENGTH_QUERY)
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "query",
+            &[&get_old_env(env)?, msg],
+            read_limits::RESULT_QUERY,
+        );
+    };
+
+    call_raw(instance, "query", &[env, msg], read_limits::RESULT_QUERY)
+}
+
+#[cfg(feature = "stargate")]
+pub fn call_ibc_channel_open_raw<A, S, Q>(
+    instance: &mut Instance<A, S, Q>,
+    env: &[u8],
+    msg: &[u8],
+) -> VmResult<Vec<u8>>
+where
+    A: BackendApi + 'static,
+    S: Storage + 'static,
+    Q: Querier + 'static,
+{
+    instance.set_storage_readonly(false);
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "ibc_channel_open",
+            &[&get_old_env(env)?, msg],
+            read_limits::RESULT_IBC_CHANNEL_OPEN,
+        );
+    };
+
+    call_raw(
+        instance,
+        "ibc_channel_open",
+        &[env, msg],
+        read_limits::RESULT_IBC_CHANNEL_OPEN,
+    )
+}
+
+#[cfg(feature = "stargate")]
+pub fn call_ibc_channel_connect_raw<A, S, Q>(
+    instance: &mut Instance<A, S, Q>,
+    env: &[u8],
+    msg: &[u8],
+) -> VmResult<Vec<u8>>
+where
+    A: BackendApi + 'static,
+    S: Storage + 'static,
+    Q: Querier + 'static,
+{
+    instance.set_storage_readonly(false);
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "ibc_channel_connect",
+            &[&get_old_env(env)?, msg],
+            read_limits::RESULT_IBC_CHANNEL_CONNECT,
+        );
+    };
+
+    call_raw(
+        instance,
+        "ibc_channel_connect",
+        &[env, msg],
+        read_limits::RESULT_IBC_CHANNEL_CONNECT,
+    )
+}
+
+#[cfg(feature = "stargate")]
+pub fn call_ibc_channel_close_raw<A, S, Q>(
+    instance: &mut Instance<A, S, Q>,
+    env: &[u8],
+    msg: &[u8],
+) -> VmResult<Vec<u8>>
+where
+    A: BackendApi + 'static,
+    S: Storage + 'static,
+    Q: Querier + 'static,
+{
+    instance.set_storage_readonly(false);
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "ibc_channel_close",
+            &[&get_old_env(env)?, msg],
+            read_limits::RESULT_IBC_CHANNEL_CLOSE,
+        );
+    };
+
+    call_raw(
+        instance,
+        "ibc_channel_close",
+        &[env, msg],
+        read_limits::RESULT_IBC_CHANNEL_CLOSE,
+    )
+}
+
+#[cfg(feature = "stargate")]
+pub fn call_ibc_packet_receive_raw<A, S, Q>(
+    instance: &mut Instance<A, S, Q>,
+    env: &[u8],
+    msg: &[u8],
+) -> VmResult<Vec<u8>>
+where
+    A: BackendApi + 'static,
+    S: Storage + 'static,
+    Q: Querier + 'static,
+{
+    instance.set_storage_readonly(false);
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "ibc_packet_receive",
+            &[&get_old_env(env)?, msg],
+            read_limits::RESULT_IBC_PACKET_RECEIVE,
+        );
+    };
+
+    call_raw(
+        instance,
+        "ibc_packet_receive",
+        &[env, msg],
+        read_limits::RESULT_IBC_PACKET_RECEIVE,
+    )
+}
+
+#[cfg(feature = "stargate")]
+pub fn call_ibc_packet_ack_raw<A, S, Q>(
+    instance: &mut Instance<A, S, Q>,
+    env: &[u8],
+    msg: &[u8],
+) -> VmResult<Vec<u8>>
+where
+    A: BackendApi + 'static,
+    S: Storage + 'static,
+    Q: Querier + 'static,
+{
+    instance.set_storage_readonly(false);
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "ibc_packet_ack",
+            &[&get_old_env(env)?, msg],
+            read_limits::RESULT_IBC_PACKET_ACK,
+        );
+    };
+
+    call_raw(
+        instance,
+        "ibc_packet_ack",
+        &[env, msg],
+        read_limits::RESULT_IBC_PACKET_ACK,
+    )
+}
+
+#[cfg(feature = "stargate")]
+pub fn call_ibc_packet_timeout_raw<A, S, Q>(
+    instance: &mut Instance<A, S, Q>,
+    env: &[u8],
+    msg: &[u8],
+) -> VmResult<Vec<u8>>
+where
+    A: BackendApi + 'static,
+    S: Storage + 'static,
+    Q: Querier + 'static,
+{
+    instance.set_storage_readonly(false);
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "ibc_packet_timeout",
+            &[&get_old_env(env)?, msg],
+            read_limits::RESULT_IBC_PACKET_TIMEOUT,
+        );
+    };
+
+    call_raw(
+        instance,
+        "ibc_packet_timeout",
+        &[env, msg],
+        read_limits::RESULT_IBC_PACKET_TIMEOUT,
+    )
 }
 
 /// Calls a function with the given arguments.
