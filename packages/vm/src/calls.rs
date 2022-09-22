@@ -118,13 +118,7 @@ pub struct BlockInfoV0_13_2 {
     pub chain_id: String,
 }
 
-fn get_old_args(env: &[u8], info: &[u8]) -> VmResult<(Vec<u8>, Vec<u8>)> {
-    let info_struct: MessageInfo = from_slice(info, 1024)?;
-    let old_info_struct = MessageInfoV0_13_2 {
-        sender: info_struct.sender.to_string(),
-        sent_funds: info_struct.funds,
-    };
-
+fn get_old_env(env: &[u8]) -> VmResult<Vec<u8>> {
     let env_struct: Env = from_slice(env, 1024)?;
     let old_env_struct = EnvV0_13_2 {
         block: BlockInfoV0_13_2 {
@@ -137,7 +131,28 @@ fn get_old_args(env: &[u8], info: &[u8]) -> VmResult<(Vec<u8>, Vec<u8>)> {
         contract: env_struct.contract,
     };
 
-    Ok((to_vec(&old_env_struct)?, to_vec(&old_info_struct)?))
+    to_vec(&old_env_struct)
+}
+
+fn get_old_info(info: &[u8]) -> VmResult<Vec<u8>> {
+    let info_struct: MessageInfo = from_slice(info, 1024)?;
+    let old_info_struct = MessageInfoV0_13_2 {
+        sender: info_struct.sender.to_string(),
+        sent_funds: info_struct.funds,
+    };
+
+    to_vec(&old_info_struct)
+}
+
+fn is_old_instance<A, S, Q>(instance: &mut Instance<A, S, Q>) -> bool
+where
+    A: BackendApi + 'static,
+    S: Storage + 'static,
+    Q: Querier + 'static,
+{
+    instance
+        .call_function0("cosmwasm_vm_version_4", &[])
+        .is_ok()
 }
 
 pub fn call_instantiate<A, S, Q, U>(
@@ -388,17 +403,13 @@ where
 {
     instance.set_storage_readonly(false);
 
-    if instance
-        .call_function0("cosmwasm_vm_version_4", &[])
-        .is_ok()
-    {
+    if is_old_instance(instance) {
         // this can be called from vm go
-        let (old_env, old_info) = get_old_args(env, info)?;
 
         return call_raw(
             instance,
             "init",
-            &[&old_env, &old_info, msg],
+            &[&get_old_env(env)?, &get_old_info(info)?, msg],
             read_limits::RESULT_INSTANTIATE,
         );
     }
@@ -425,17 +436,12 @@ where
 {
     instance.set_storage_readonly(false);
 
-    if instance
-        .call_function0("cosmwasm_vm_version_4", &[])
-        .is_ok()
-    {
+    if is_old_instance(instance) {
         // this can be called from vm go
-        let (old_env, old_info) = get_old_args(env, info)?;
-
         return call_raw(
             instance,
             "handle",
-            &[&old_env, &old_info, msg],
+            &[&get_old_env(env)?, &get_old_info(info)?, msg],
             read_limits::RESULT_EXECUTE,
         );
     }
@@ -461,6 +467,16 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "migrate",
+            &[&get_old_env(env)?, msg],
+            read_limits::RESULT_MIGRATE,
+        );
+    };
+
     call_raw(
         instance,
         "migrate",
@@ -482,6 +498,16 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "sudo",
+            &[&get_old_env(env)?, msg],
+            read_limits::RESULT_SUDO,
+        );
+    };
+
     call_raw(instance, "sudo", &[env, msg], read_limits::RESULT_SUDO)
 }
 
@@ -498,6 +524,16 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "reply",
+            &[&get_old_env(env)?, msg],
+            read_limits::RESULT_REPLY,
+        );
+    };
+
     call_raw(instance, "reply", &[env, msg], read_limits::RESULT_REPLY)
 }
 
@@ -514,6 +550,16 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(true);
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "query",
+            &[&get_old_env(env)?, msg],
+            read_limits::RESULT_QUERY,
+        );
+    };
+
     call_raw(instance, "query", &[env, msg], read_limits::RESULT_QUERY)
 }
 
@@ -529,6 +575,16 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "ibc_channel_open",
+            &[&get_old_env(env)?, msg],
+            read_limits::RESULT_IBC_CHANNEL_OPEN,
+        );
+    };
+
     call_raw(
         instance,
         "ibc_channel_open",
@@ -549,6 +605,16 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "ibc_channel_connect",
+            &[&get_old_env(env)?, msg],
+            read_limits::RESULT_IBC_CHANNEL_CONNECT,
+        );
+    };
+
     call_raw(
         instance,
         "ibc_channel_connect",
@@ -569,6 +635,16 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "ibc_channel_close",
+            &[&get_old_env(env)?, msg],
+            read_limits::RESULT_IBC_CHANNEL_CLOSE,
+        );
+    };
+
     call_raw(
         instance,
         "ibc_channel_close",
@@ -589,6 +665,16 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "ibc_packet_receive",
+            &[&get_old_env(env)?, msg],
+            read_limits::RESULT_IBC_PACKET_RECEIVE,
+        );
+    };
+
     call_raw(
         instance,
         "ibc_packet_receive",
@@ -609,6 +695,16 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "ibc_packet_ack",
+            &[&get_old_env(env)?, msg],
+            read_limits::RESULT_IBC_PACKET_ACK,
+        );
+    };
+
     call_raw(
         instance,
         "ibc_packet_ack",
@@ -629,6 +725,16 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
+
+    if is_old_instance(instance) {
+        return call_raw(
+            instance,
+            "ibc_packet_timeout",
+            &[&get_old_env(env)?, msg],
+            read_limits::RESULT_IBC_PACKET_TIMEOUT,
+        );
+    };
+
     call_raw(
         instance,
         "ibc_packet_timeout",
