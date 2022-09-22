@@ -69,8 +69,7 @@ use crate::results::SubMsg;
 ///     Ok(response)
 /// }
 /// ```
-/// we remove JsonSchema because this build is for cosmwasm_vm only, not for generating smart contract schema
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Response<T = Empty>
 where
     T: Clone + fmt::Debug + PartialEq + JsonSchema,
@@ -78,8 +77,6 @@ where
     /// Optional list of "subcalls" to make. These will be executed in order
     /// (and this contract's subcall_response entry point invoked)
     /// *before* any of the "fire and forget" messages get executed.
-    /// If the value is not present when deserializing, use the Default::default()
-    #[serde(default = "Vec::default")]
     pub submessages: Vec<SubMsg<T>>,
     /// After any submessages are processed, these are all dispatched in the host blockchain.
     /// If they all succeed, then the transaction is committed. If any fail, then the transaction

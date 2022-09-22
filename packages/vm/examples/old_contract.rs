@@ -1,10 +1,11 @@
 use std::sync::Arc;
 use tempfile::TempDir;
 
-use cosmwasm_std::{coins, Empty};
+use cosmwasm_std::{coins, to_vec};
 use cosmwasm_vm::testing::{mock_backend, mock_env, mock_info};
 use cosmwasm_vm::{
-    call_execute, call_instantiate, features_from_csv, Cache, CacheOptions, InstanceOptions, Size,
+    call_execute_raw, call_instantiate_raw, features_from_csv, Cache, CacheOptions,
+    InstanceOptions, Size,
 };
 
 // Instance
@@ -35,17 +36,21 @@ pub fn main() {
         .get_instance(&checksum, mock_backend(&[]), DEFAULT_INSTANCE_OPTIONS)
         .unwrap();
 
-    let info = mock_info("creator", &coins(1000, "earth"));
     let msg = br#"{"name": "name", "version": "version", "symbol": "symbol","minter":"creator"}"#;
-    let contract_result =
-        call_instantiate::<_, _, _, Empty>(&mut instance, &mock_env(), &info, msg).unwrap();
-    println!("Done instantiating contract");
-    println!("result: {:?}", contract_result.into_result().unwrap());
+    let env = to_vec(&mock_env()).unwrap();
+    let info = to_vec(&mock_info("creator", &coins(1000, "earth"))).unwrap();
+    let contract_result = call_instantiate_raw::<_, _, _>(&mut instance, &env, &info, msg).unwrap();
+    println!(
+        "Done instantiating contract: {}",
+        String::from_utf8(contract_result).unwrap()
+    );
 
-    let info = mock_info("creator", &coins(15, "earth"));
+    let env = to_vec(&mock_env()).unwrap();
+    let info = to_vec(&mock_info("creator", &coins(15, "earth"))).unwrap();
     let msg = br#"{"mint":{"token_id": "token_id", "owner": "creator", "name": "name", "description": "description", "image": "image"}}"#;
-    let contract_result =
-        call_execute::<_, _, _, Empty>(&mut instance, &mock_env(), &info, msg).unwrap();
-    println!("Done excuting contract");
-    println!("{:?}", contract_result.into_result().unwrap());
+    let contract_result = call_execute_raw::<_, _, _>(&mut instance, &env, &info, msg).unwrap();
+    println!(
+        "Done excuting contract: {}",
+        String::from_utf8(contract_result).unwrap()
+    );
 }
