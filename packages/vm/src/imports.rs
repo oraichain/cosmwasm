@@ -3,14 +3,6 @@
 use std::cmp::max;
 use std::convert::TryInto;
 
-use cosmwasm_crypto::{
-    ed25519_batch_verify, ed25519_verify, secp256k1_recover_pubkey, secp256k1_verify, CryptoError,
-};
-use cosmwasm_crypto::{
-    BATCH_MAX_LEN, ECDSA_PUBKEY_MAX_LEN, ECDSA_SIGNATURE_LEN, EDDSA_PUBKEY_LEN,
-    MESSAGE_HASH_MAX_LEN, MESSAGE_MAX_LEN,
-};
-
 #[cfg(feature = "iterator")]
 use cosmwasm_std::Order;
 use cosmwasm_std::{Binary, CanonicalAddr, HumanAddr};
@@ -111,42 +103,6 @@ pub fn native_addr_humanize<A: Api, S: Storage, Q: Querier>(
     destination_ptr: u32,
 ) -> VmResult<u32> {
     do_addr_humanize(&env, source_ptr, destination_ptr)
-}
-
-pub fn native_secp256k1_verify<A: Api, S: Storage, Q: Querier>(
-    env: &Environment<A, S, Q>,
-    hash_ptr: u32,
-    signature_ptr: u32,
-    pubkey_ptr: u32,
-) -> VmResult<u32> {
-    do_secp256k1_verify(env, hash_ptr, signature_ptr, pubkey_ptr)
-}
-
-pub fn native_secp256k1_recover_pubkey<A: Api, S: Storage, Q: Querier>(
-    env: &Environment<A, S, Q>,
-    hash_ptr: u32,
-    signature_ptr: u32,
-    recovery_param: u32,
-) -> VmResult<u64> {
-    do_secp256k1_recover_pubkey(env, hash_ptr, signature_ptr, recovery_param)
-}
-
-pub fn native_ed25519_verify<A: Api, S: Storage, Q: Querier>(
-    env: &Environment<A, S, Q>,
-    message_ptr: u32,
-    signature_ptr: u32,
-    pubkey_ptr: u32,
-) -> VmResult<u32> {
-    do_ed25519_verify(env, message_ptr, signature_ptr, pubkey_ptr)
-}
-
-pub fn native_ed25519_batch_verify<A: Api, S: Storage, Q: Querier>(
-    env: &Environment<A, S, Q>,
-    messages_ptr: u32,
-    signatures_ptr: u32,
-    pubkeys_ptr: u32,
-) -> VmResult<u32> {
-    do_ed25519_batch_verify(env, messages_ptr, signatures_ptr, pubkeys_ptr)
 }
 
 pub fn native_query_chain<A: Api, S: Storage, Q: Querier>(
@@ -386,144 +342,6 @@ fn do_humanize_address<A: Api, S: Storage, Q: Querier>(
     }
 }
 
-fn do_secp256k1_verify<A: Api, S: Storage, Q: Querier>(
-    env: &Environment<A, S, Q>,
-    hash_ptr: u32,
-    signature_ptr: u32,
-    pubkey_ptr: u32,
-) -> VmResult<u32> {
-    let hash = read_region(&env.memory(), hash_ptr, MESSAGE_HASH_MAX_LEN)?;
-    let signature = read_region(&env.memory(), signature_ptr, ECDSA_SIGNATURE_LEN)?;
-    let pubkey = read_region(&env.memory(), pubkey_ptr, ECDSA_PUBKEY_MAX_LEN)?;
-
-    let result = secp256k1_verify(&hash, &signature, &pubkey);
-    let gas_info = GasInfo::with_cost(env.gas_config.secp256k1_verify_cost);
-    process_gas_info::<A, S, Q>(env, gas_info)?;
-    Ok(result.map_or_else(
-        |err| match err {
-            CryptoError::InvalidHashFormat { .. }
-            | CryptoError::InvalidPubkeyFormat { .. }
-            | CryptoError::InvalidSignatureFormat { .. }
-            | CryptoError::GenericErr { .. } => err.code(),
-            CryptoError::BatchErr { .. }
-            | CryptoError::InvalidRecoveryParam { .. }
-            | CryptoError::MessageTooLong { .. } => panic!("Error must not happen for this call"),
-        },
-        |valid| if valid { 0 } else { 1 },
-    ))
-}
-
-fn do_secp256k1_recover_pubkey<A: Api, S: Storage, Q: Querier>(
-    env: &Environment<A, S, Q>,
-    hash_ptr: u32,
-    signature_ptr: u32,
-    recover_param: u32,
-) -> VmResult<u64> {
-    let hash = read_region(&env.memory(), hash_ptr, MESSAGE_HASH_MAX_LEN)?;
-    let signature = read_region(&env.memory(), signature_ptr, ECDSA_SIGNATURE_LEN)?;
-    let recover_param: u8 = match recover_param.try_into() {
-        Ok(rp) => rp,
-        Err(_) => return Ok((CryptoError::invalid_recovery_param().code() as u64) << 32),
-    };
-
-    let result = secp256k1_recover_pubkey(&hash, &signature, recover_param);
-    let gas_info = GasInfo::with_cost(env.gas_config.secp256k1_recover_pubkey_cost);
-    process_gas_info::<A, S, Q>(env, gas_info)?;
-    match result {
-        Ok(pubkey) => {
-            let pubkey_ptr = write_to_contract::<A, S, Q>(env, pubkey.as_ref())?;
-            Ok(to_low_half(pubkey_ptr))
-        }
-        Err(err) => match err {
-            CryptoError::InvalidHashFormat { .. }
-            | CryptoError::InvalidSignatureFormat { .. }
-            | CryptoError::InvalidRecoveryParam { .. }
-            | CryptoError::GenericErr { .. } => Ok(to_high_half(err.code())),
-            CryptoError::BatchErr { .. }
-            | CryptoError::InvalidPubkeyFormat { .. }
-            | CryptoError::MessageTooLong { .. } => panic!("Error must not happen for this call"),
-        },
-    }
-}
-
-fn do_ed25519_verify<A: Api, S: Storage, Q: Querier>(
-    env: &Environment<A, S, Q>,
-    message_ptr: u32,
-    signature_ptr: u32,
-    pubkey_ptr: u32,
-) -> VmResult<u32> {
-    let message = read_region(&env.memory(), message_ptr, MESSAGE_MAX_LEN)?;
-    let signature = read_region(&env.memory(), signature_ptr, MAX_LENGTH_ED25519_SIGNATURE)?;
-    let pubkey = read_region(&env.memory(), pubkey_ptr, EDDSA_PUBKEY_LEN)?;
-
-    let result = ed25519_verify(&message, &signature, &pubkey);
-    let gas_info = GasInfo::with_cost(env.gas_config.ed25519_verify_cost);
-    process_gas_info::<A, S, Q>(env, gas_info)?;
-    Ok(result.map_or_else(
-        |err| match err {
-            CryptoError::MessageTooLong { .. }
-            | CryptoError::InvalidPubkeyFormat { .. }
-            | CryptoError::InvalidSignatureFormat { .. }
-            | CryptoError::GenericErr { .. } => err.code(),
-            CryptoError::BatchErr { .. }
-            | CryptoError::InvalidHashFormat { .. }
-            | CryptoError::InvalidRecoveryParam { .. } => {
-                panic!("Error must not happen for this call")
-            }
-        },
-        |valid| if valid { 0 } else { 1 },
-    ))
-}
-
-fn do_ed25519_batch_verify<A: Api, S: Storage, Q: Querier>(
-    env: &Environment<A, S, Q>,
-    messages_ptr: u32,
-    signatures_ptr: u32,
-    public_keys_ptr: u32,
-) -> VmResult<u32> {
-    let messages = read_region(
-        &env.memory(),
-        messages_ptr,
-        (MESSAGE_MAX_LEN + 4) * BATCH_MAX_LEN,
-    )?;
-    let signatures = read_region(
-        &env.memory(),
-        signatures_ptr,
-        (MAX_LENGTH_ED25519_SIGNATURE + 4) * BATCH_MAX_LEN,
-    )?;
-    let public_keys = read_region(
-        &env.memory(),
-        public_keys_ptr,
-        (EDDSA_PUBKEY_LEN + 4) * BATCH_MAX_LEN,
-    )?;
-
-    let messages = decode_sections(&messages);
-    let signatures = decode_sections(&signatures);
-    let public_keys = decode_sections(&public_keys);
-
-    let result = ed25519_batch_verify(&messages, &signatures, &public_keys);
-    let gas_cost = if public_keys.len() == 1 {
-        env.gas_config.ed25519_batch_verify_one_pubkey_cost
-    } else {
-        env.gas_config.ed25519_batch_verify_cost
-    } * signatures.len() as u64;
-    let gas_info = GasInfo::with_cost(max(gas_cost, env.gas_config.ed25519_verify_cost));
-    process_gas_info::<A, S, Q>(env, gas_info)?;
-    Ok(result.map_or_else(
-        |err| match err {
-            CryptoError::BatchErr { .. }
-            | CryptoError::MessageTooLong { .. }
-            | CryptoError::InvalidPubkeyFormat { .. }
-            | CryptoError::InvalidSignatureFormat { .. }
-            | CryptoError::GenericErr { .. } => err.code(),
-            CryptoError::InvalidHashFormat { .. } | CryptoError::InvalidRecoveryParam { .. } => {
-                panic!("Error must not happen for this call")
-            }
-        },
-        |valid| (!valid).into(),
-    ))
-}
-
 /// Creates a Region in the contract, writes the given data to it and returns the memory location
 fn write_to_contract<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
@@ -677,10 +495,6 @@ mod tests {
                 "canonicalize_address" => Function::new_native(&store, |_a: u32, _b: u32| -> u32 { 0 }),
                 "humanize_address" => Function::new_native(&store, |_a: u32, _b: u32| -> u32 { 0 }),
                 "addr_humanize" => Function::new_native(&store, |_a: u32, _b: u32| -> u32 { 0 }),
-                "secp256k1_verify" => Function::new_native(&store, |_a: u32, _b: u32, _c: u32| -> u32 { 0 }),
-                "secp256k1_recover_pubkey" => Function::new_native(&store, |_a: u32, _b: u32, _c: u32| -> u64 { 0 }),
-                "ed25519_verify" => Function::new_native(&store, |_a: u32, _b: u32, _c: u32| -> u32 { 0 }),
-                "ed25519_batch_verify" => Function::new_native(&store, |_a: u32, _b: u32, _c: u32| -> u32 { 0 }),
                 "debug" => Function::new_native(&store, |_a: u32| {}),
             },
         };
