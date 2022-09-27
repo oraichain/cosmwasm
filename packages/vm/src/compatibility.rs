@@ -47,14 +47,8 @@ const REQUIRED_EXPORTS: &[&str] = &[
 ];
 
 const INTERFACE_VERSION_PREFIX: &str = "interface_version_";
-const SUPPORTED_INTERFACE_VERSIONS: &[&str] = &[
-    "interface_version_8",
-    #[cfg(feature = "allow_interface_version_7")]
-    "interface_version_7",
-    // 0.14.0
-    #[cfg(feature = "allow_interface_version_5")]
-    "interface_version_5",
-];
+// support until this version
+const SUPPORTED_INTERFACE_VERSION: u8 = 8;
 
 const MEMORY_LIMIT: u32 = 512; // in pages
 
@@ -121,11 +115,11 @@ fn check_interface_version(module: &Module) -> VmResult<()> {
             ))
         } else {
             // Exactly one interface version found
-            let version_str = first_interface_version_export.as_str();
-            if SUPPORTED_INTERFACE_VERSIONS
-                .iter()
-                .any(|&v| v == version_str)
-            {
+            let version = first_interface_version_export[INTERFACE_VERSION_PREFIX.len()..]
+                .parse::<u8>()
+                .unwrap_or_default();
+
+            if version > 0 && version <= SUPPORTED_INTERFACE_VERSION {
                 Ok(())
             } else {
                 Err(VmError::static_validation_err(
