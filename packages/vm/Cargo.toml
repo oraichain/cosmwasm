@@ -29,6 +29,7 @@ cranelift = ["wasmer/cranelift"]
 # activate this feature.
 # See also https://gist.github.com/webmaster128/3cd1988680843ecaf7548050821e1e6f.
 allow_interface_version_7 = []
+allow_interface_version_5 = []
 
 [lib]
 # See https://bheisler.github.io/criterion.rs/book/faq.html#cargo-bench-gives-unrecognized-option-errors-for-valid-command-line-options

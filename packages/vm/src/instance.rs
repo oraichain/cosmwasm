@@ -373,6 +373,10 @@ where
     pub(crate) fn call_function1(&self, name: &str, args: &[Val]) -> VmResult<Val> {
         self.env.call_function1(name, args)
     }
+
+    pub(crate) fn is_old_instance(&self) -> bool {
+        self.env.is_old_instance()
+    }
 }
 
 /// This exists only to be exported through `internals` for use by crates that are

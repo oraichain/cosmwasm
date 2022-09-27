@@ -144,17 +144,6 @@ fn get_old_info(info: &[u8]) -> VmResult<Vec<u8>> {
     to_vec(&old_info_struct)
 }
 
-fn is_old_instance<A, S, Q>(instance: &mut Instance<A, S, Q>) -> bool
-where
-    A: BackendApi + 'static,
-    S: Storage + 'static,
-    Q: Querier + 'static,
-{
-    instance
-        .call_function0("cosmwasm_vm_version_4", &[])
-        .is_ok()
-}
-
 pub fn call_instantiate<A, S, Q, U>(
     instance: &mut Instance<A, S, Q>,
     env: &Env,
@@ -403,7 +392,7 @@ where
 {
     instance.set_storage_readonly(false);
 
-    if is_old_instance(instance) {
+    if instance.is_old_instance() {
         // this can be called from vm go
 
         return call_raw(
@@ -436,7 +425,7 @@ where
 {
     instance.set_storage_readonly(false);
 
-    if is_old_instance(instance) {
+    if instance.is_old_instance() {
         // this can be called from vm go
         return call_raw(
             instance,
@@ -468,7 +457,7 @@ where
 {
     instance.set_storage_readonly(false);
 
-    if is_old_instance(instance) {
+    if instance.is_old_instance() {
         return call_raw(
             instance,
             "migrate",
@@ -499,7 +488,7 @@ where
 {
     instance.set_storage_readonly(false);
 
-    if is_old_instance(instance) {
+    if instance.is_old_instance() {
         return call_raw(
             instance,
             "sudo",
@@ -525,7 +514,7 @@ where
 {
     instance.set_storage_readonly(false);
 
-    if is_old_instance(instance) {
+    if instance.is_old_instance() {
         return call_raw(
             instance,
             "reply",
@@ -551,7 +540,7 @@ where
 {
     instance.set_storage_readonly(true);
 
-    if is_old_instance(instance) {
+    if instance.is_old_instance() {
         return call_raw(
             instance,
             "query",
@@ -576,7 +565,7 @@ where
 {
     instance.set_storage_readonly(false);
 
-    if is_old_instance(instance) {
+    if instance.is_old_instance() {
         return call_raw(
             instance,
             "ibc_channel_open",
@@ -606,7 +595,7 @@ where
 {
     instance.set_storage_readonly(false);
 
-    if is_old_instance(instance) {
+    if instance.is_old_instance() {
         return call_raw(
             instance,
             "ibc_channel_connect",
@@ -636,7 +625,7 @@ where
 {
     instance.set_storage_readonly(false);
 
-    if is_old_instance(instance) {
+    if instance.is_old_instance() {
         return call_raw(
             instance,
             "ibc_channel_close",
@@ -666,7 +655,7 @@ where
 {
     instance.set_storage_readonly(false);
 
-    if is_old_instance(instance) {
+    if instance.is_old_instance() {
         return call_raw(
             instance,
             "ibc_packet_receive",
@@ -696,7 +685,7 @@ where
 {
     instance.set_storage_readonly(false);
 
-    if is_old_instance(instance) {
+    if instance.is_old_instance() {
         return call_raw(
             instance,
             "ibc_packet_ack",
@@ -726,7 +715,7 @@ where
 {
     instance.set_storage_readonly(false);
 
-    if is_old_instance(instance) {
+    if instance.is_old_instance() {
         return call_raw(
             instance,
             "ibc_packet_timeout",

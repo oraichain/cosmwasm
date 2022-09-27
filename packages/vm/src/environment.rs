@@ -7,6 +7,7 @@ use wasmer::{HostEnvInitError, Instance as WasmerInstance, Memory, Val, WasmerEn
 use wasmer_middlewares::metering::{get_remaining_points, set_remaining_points, MeteringPoints};
 
 use crate::backend::{BackendApi, GasInfo, Querier, Storage};
+use crate::compatibility::OLD_EXPORT;
 use crate::errors::{VmError, VmResult};
 
 /// Never can never be instantiated.
@@ -195,6 +196,10 @@ impl<A: BackendApi, S: Storage, Q: Querier> Environment<A, S, Q> {
             return Err(VmError::result_mismatch(name, expected, actual));
         }
         Ok(result[0].clone())
+    }
+
+    pub fn is_old_instance(&self) -> bool {
+        self.call_function0(OLD_EXPORT, &[]).is_ok()
     }
 
     pub fn with_storage_from_context<C, T>(&self, callback: C) -> VmResult<T>
