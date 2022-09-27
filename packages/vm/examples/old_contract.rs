@@ -3,7 +3,7 @@ use tempfile::TempDir;
 
 use clap::{App, Arg};
 use cosmwasm_std::{coins, from_slice, to_vec, ContractResult, QueryResponse};
-use cosmwasm_vm::testing::{mock_backend, mock_env, mock_info};
+use cosmwasm_vm::testing::{mock_backend, mock_env, mock_info, MockApi};
 use cosmwasm_vm::{
     call_execute_raw, call_instantiate_raw, call_query_raw, Cache, CacheOptions, InstanceOptions,
     Size,
@@ -36,9 +36,10 @@ pub fn run_contract(src: &str) {
     let cache = unsafe { Cache::new(options).unwrap() };
 
     let checksum = cache.save_wasm(&contract).unwrap();
-
+    let mut backend = mock_backend(&[]);
+    backend.api = MockApi::new(24); // same as old version
     let mut instance = cache
-        .get_instance(&checksum, mock_backend(&[]), DEFAULT_INSTANCE_OPTIONS)
+        .get_instance(&checksum, backend, DEFAULT_INSTANCE_OPTIONS)
         .unwrap();
 
     let msg = br#"{"name": "name", "version": "version", "symbol": "symbol","minter":"creator"}"#;

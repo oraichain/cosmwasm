@@ -435,7 +435,17 @@ pub fn do_db_next<A: BackendApi, S: Storage, Q: Querier>(
     // Empty key will later be treated as _no more element_.
     let (key, value) = result?.unwrap_or_else(|| (Vec::<u8>::new(), Vec::<u8>::new()));
 
-    let out_data = encode_sections(&[key, value])?;
+    let out_data = if env.is_old_instance() {
+        let keylen_bytes = to_u32(key.len())?.to_be_bytes();
+        let mut out_data = value;
+        out_data.reserve(key.len() + 4);
+        out_data.extend(key);
+        out_data.extend_from_slice(&keylen_bytes);
+        out_data
+    } else {
+        encode_sections(&[key, value])?
+    };
+
     write_to_contract::<A, S, Q>(env, &out_data)
 }
 
