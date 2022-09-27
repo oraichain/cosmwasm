@@ -112,7 +112,7 @@ where
         env_imports.insert(
             "addr_validate",
             Function::new_native_with_env(store, env.clone(), native_addr_validate),
-        );        
+        );
 
         // Reads human address from source_ptr and writes canonicalized representation to destination_ptr.
         // A prepared and sufficiently large memory Region is expected at destination_ptr that points to pre-allocated memory.
@@ -339,6 +339,10 @@ where
     /// The function is expected to return one value. Otherwise this calls errors.
     pub(crate) fn call_function1(&self, name: &str, args: &[Val]) -> VmResult<Val> {
         self.env.call_function1(name, args)
+    }
+
+    pub(crate) fn is_old_instance(&self) -> bool {
+        self.env.is_old_instance()
     }
 }
 

@@ -7,6 +7,8 @@ use crate::features::required_features_from_module;
 use crate::limited::LimitedDisplay;
 use crate::static_analysis::{deserialize_wasm, exported_functions};
 
+pub(crate) const OLD_EXPORT: &str = "cosmwasm_vm_version_4";
+
 /// Lists all imports we provide upon instantiating the instance in Instance::from_module()
 /// This should be updated when new imports are added
 const SUPPORTED_IMPORTS: &[&str] = &[
@@ -35,8 +37,8 @@ const SUPPORTED_IMPORTS: &[&str] = &[
 /// This is unlikely to change much, must be frozen at 1.0 to avoid breaking existing contracts
 /// uncomment interface_version_5 and instantiate to make compatible with 0.13.2
 const REQUIRED_EXPORTS: &[&str] = &[
-    // "interface_version_5",
-    // "instantiate",
+    "interface_version_5",
+    "instantiate",
     "allocate",
     "deallocate",
 ];
@@ -91,6 +93,12 @@ fn check_wasm_memories(module: &Module) -> VmResult<()> {
 
 fn check_wasm_exports(module: &Module) -> VmResult<()> {
     let available_exports: HashSet<String> = exported_functions(module);
+
+    // support cosmwasm_vm_version_4 (v0.11.0 - v0.13.2)
+    if available_exports.contains(OLD_EXPORT) {
+        return Ok(());
+    }
+
     for required_export in REQUIRED_EXPORTS {
         if !available_exports.contains(*required_export) {
             return Err(VmError::static_validation_err(format!(

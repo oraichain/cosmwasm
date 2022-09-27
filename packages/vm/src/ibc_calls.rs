@@ -10,7 +10,7 @@ use std::fmt;
 
 use crate::backend::{BackendApi, Querier, Storage};
 use crate::calls::call_raw;
-use crate::calls::{get_old_env, is_old_instance};
+use crate::calls::get_old_env;
 use crate::errors::VmResult;
 use crate::instance::Instance;
 use crate::serde::{from_slice, to_vec};
@@ -136,7 +136,7 @@ where
 {
     instance.set_storage_readonly(false);
 
-    if is_old_instance(instance) {
+    if instance.is_old_instance() {
         return call_raw(
             instance,
             "ibc_channel_open",
@@ -165,7 +165,7 @@ where
 {
     instance.set_storage_readonly(false);
 
-    if is_old_instance(instance) {
+    if instance.is_old_instance() {
         return call_raw(
             instance,
             "ibc_channel_connect",
@@ -194,7 +194,7 @@ where
 {
     instance.set_storage_readonly(false);
 
-    if is_old_instance(instance) {
+    if instance.is_old_instance() {
         return call_raw(
             instance,
             "ibc_channel_close",
@@ -223,7 +223,7 @@ where
 {
     instance.set_storage_readonly(false);
 
-    if is_old_instance(instance) {
+    if instance.is_old_instance() {
         return call_raw(
             instance,
             "ibc_packet_receive",
@@ -252,7 +252,7 @@ where
 {
     instance.set_storage_readonly(false);
 
-    if is_old_instance(instance) {
+    if instance.is_old_instance() {
         return call_raw(
             instance,
             "ibc_packet_ack",
@@ -276,7 +276,7 @@ where
 {
     instance.set_storage_readonly(false);
 
-    if is_old_instance(instance) {
+    if instance.is_old_instance() {
         return call_raw(
             instance,
             "ibc_packet_timeout",
