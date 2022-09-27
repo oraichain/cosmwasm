@@ -56,7 +56,7 @@ pub fn main() {
     );
 
     let env = to_vec(&mock_env()).unwrap();
-    let msg = br#"{"contract_info":{}}"#;
+    let msg = br#"{"all_tokens":{}}"#;
     let data = call_query_raw::<_, _, _>(&mut instance, &env, msg).unwrap();
     let contract_result: ContractResult<QueryResponse> = from_slice(&data).unwrap();
     println!(
