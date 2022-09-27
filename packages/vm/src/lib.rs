@@ -20,18 +20,22 @@ mod modules;
 mod sections;
 mod serde;
 mod size;
-mod static_analysis;
 pub mod testing;
 mod wasm_backend;
 
-pub use crate::backend::{
-    Backend, BackendApi, BackendError, BackendResult, GasInfo, Querier, Storage,
-};
-pub use crate::cache::{AnalysisReport, Cache, CacheOptions, Metrics, Stats};
+pub use crate::backend::{Api, Backend, BackendError, BackendResult, GasInfo, Querier, Storage};
+pub use crate::cache::{Cache, CacheOptions, Stats};
 pub use crate::calls::{
-    call_execute, call_execute_raw, call_instantiate, call_instantiate_raw, call_migrate,
-    call_migrate_raw, call_query, call_query_raw, call_reply, call_reply_raw, call_sudo,
-    call_sudo_raw,
+    // call_execute, call_execute_raw, call_instantiate, call_instantiate_raw, call_reply, call_reply_raw,
+    // call_sudo, call_sudo_raw,
+    call_handle,
+    call_handle_raw,
+    call_init,
+    call_init_raw,
+    call_migrate,
+    call_migrate_raw,
+    call_query,
+    call_query_raw,
 };
 pub use crate::checksum::Checksum;
 
@@ -59,5 +63,5 @@ pub mod internals {
     //! they might change frequently or be removed in the future.
 
     pub use crate::compatibility::check_wasm;
-    pub use crate::wasm_backend::{compile, make_runtime_store};
+    pub use crate::wasm_backend::make_runtime_store;
 }

@@ -8,7 +8,7 @@ use crate::compatibility::check_wasm;
 use crate::features::features_from_csv;
 use crate::instance::{Instance, InstanceOptions};
 use crate::size::Size;
-use crate::{Backend, BackendApi, Querier, Storage};
+use crate::{Api, Backend, Querier, Storage};
 
 use super::mock::{MockApi, MOCK_CONTRACT_ADDR};
 use super::querier::MockQuerier;
@@ -18,7 +18,7 @@ use super::storage::MockStorage;
 /// number of contract executions and queries on one instance. For this reason it is significatly
 /// higher than the limit for a single execution that we have in the production setup.
 const DEFAULT_GAS_LIMIT: u64 = 5_000_000;
-const DEFAULT_MEMORY_LIMIT: Option<Size> = Some(Size::mebi(16));
+const DEFAULT_MEMORY_LIMIT: Size = Size::mebi(16);
 const DEFAULT_PRINT_DEBUG: bool = true;
 
 pub fn mock_instance(
@@ -89,19 +89,7 @@ pub struct MockInstanceOptions<'a> {
     pub gas_limit: u64,
     pub print_debug: bool,
     /// Memory limit in bytes. Use a value that is divisible by the Wasm page size 65536, e.g. full MiBs.
-    pub memory_limit: Option<Size>,
-}
-
-impl MockInstanceOptions<'_> {
-    #[cfg(feature = "stargate")]
-    fn default_features() -> HashSet<String> {
-        features_from_csv("staking,stargate")
-    }
-
-    #[cfg(not(feature = "stargate"))]
-    fn default_features() -> HashSet<String> {
-        features_from_csv("staking")
-    }
+    pub memory_limit: Size,
 }
 
 impl Default for MockInstanceOptions<'_> {
@@ -113,7 +101,7 @@ impl Default for MockInstanceOptions<'_> {
             backend_error: None,
 
             // instance
-            supported_features: Self::default_features(),
+            supported_features: features_from_csv("staking"),
             gas_limit: DEFAULT_GAS_LIMIT,
             print_debug: DEFAULT_PRINT_DEBUG,
             memory_limit: DEFAULT_MEMORY_LIMIT,
@@ -126,16 +114,16 @@ pub fn mock_instance_with_options(
     options: MockInstanceOptions,
 ) -> Instance<MockApi, MockStorage, MockQuerier> {
     check_wasm(wasm, &options.supported_features).unwrap();
-    let contract_address = &HumanAddr(MOCK_CONTRACT_ADDR.to_string());
+    let contract_address = HumanAddr::from(MOCK_CONTRACT_ADDR);
 
     // merge balances
     let mut balances = options.balances.to_vec();
     if let Some(contract_balance) = options.contract_balance {
         // Remove old entry if exists
-        if let Some(pos) = balances.iter().position(|item| item.0 == contract_address) {
+        if let Some(pos) = balances.iter().position(|item| *item.0 == contract_address) {
             balances.remove(pos);
         }
-        balances.push((contract_address, contract_balance));
+        balances.push((&contract_address, contract_balance));
     }
 
     let api = if let Some(backend_error) = options.backend_error {
@@ -149,30 +137,28 @@ pub fn mock_instance_with_options(
         storage: MockStorage::default(),
         querier: MockQuerier::new(&balances),
     };
-    let memory_limit = options.memory_limit;
     let options = InstanceOptions {
         gas_limit: options.gas_limit,
+        memory_limit: options.memory_limit,
         print_debug: options.print_debug,
     };
-    Instance::from_code(wasm, backend, options, memory_limit).unwrap()
+    Instance::from_code(wasm, backend, options).unwrap()
 }
 
 /// Creates InstanceOptions for testing
-pub fn mock_instance_options() -> (InstanceOptions, Option<Size>) {
-    (
-        InstanceOptions {
-            gas_limit: DEFAULT_GAS_LIMIT,
-            print_debug: DEFAULT_PRINT_DEBUG,
-        },
-        DEFAULT_MEMORY_LIMIT,
-    )
+pub fn mock_instance_options() -> InstanceOptions {
+    InstanceOptions {
+        gas_limit: DEFAULT_GAS_LIMIT,
+        memory_limit: DEFAULT_MEMORY_LIMIT,
+        print_debug: DEFAULT_PRINT_DEBUG,
+    }
 }
 
 /// Runs a series of IO tests, hammering especially on allocate and deallocate.
 /// This could be especially useful when run with some kind of leak detector.
 pub fn test_io<A, S, Q>(instance: &mut Instance<A, S, Q>)
 where
-    A: BackendApi + 'static,
+    A: Api + 'static,
     S: Storage + 'static,
     Q: Querier + 'static,
 {

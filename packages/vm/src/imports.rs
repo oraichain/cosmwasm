@@ -13,8 +13,9 @@ use cosmwasm_crypto::{
 
 #[cfg(feature = "iterator")]
 use cosmwasm_std::Order;
+use cosmwasm_std::{Binary, CanonicalAddr, HumanAddr};
 
-use crate::backend::{BackendApi, BackendError, Querier, Storage};
+use crate::backend::{Api, BackendError, Querier, Storage};
 use crate::conversion::{ref_to_u32, to_u32};
 use crate::environment::{process_gas_info, Environment};
 use crate::errors::{CommunicationError, VmError, VmResult};
@@ -50,7 +51,7 @@ const MAX_LENGTH_DEBUG: usize = 2 * MI;
 // Function::new_native_with_env interface. Those require an env in the first
 // argument and cannot capiture other variables such as the Api.
 
-pub fn native_db_read<A: BackendApi, S: Storage, Q: Querier>(
+pub fn native_db_read<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     key_ptr: u32,
 ) -> VmResult<u32> {
@@ -58,7 +59,7 @@ pub fn native_db_read<A: BackendApi, S: Storage, Q: Querier>(
     Ok(ptr)
 }
 
-pub fn native_db_write<A: BackendApi, S: Storage, Q: Querier>(
+pub fn native_db_write<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     key_ptr: u32,
     value_ptr: u32,
@@ -66,21 +67,37 @@ pub fn native_db_write<A: BackendApi, S: Storage, Q: Querier>(
     do_write(env, key_ptr, value_ptr)
 }
 
-pub fn native_db_remove<A: BackendApi, S: Storage, Q: Querier>(
+pub fn native_db_remove<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     key_ptr: u32,
 ) -> VmResult<()> {
     do_remove(env, key_ptr)
 }
 
-pub fn native_addr_validate<A: BackendApi, S: Storage, Q: Querier>(
+pub fn native_canonicalize_address<A: Api, S: Storage, Q: Querier>(
+    env: &Environment<A, S, Q>,
+    source_ptr: u32,
+    destination_ptr: u32,
+) -> VmResult<u32> {
+    do_canonicalize_address(&env, source_ptr, destination_ptr)
+}
+
+pub fn native_humanize_address<A: Api, S: Storage, Q: Querier>(
+    env: &Environment<A, S, Q>,
+    source_ptr: u32,
+    destination_ptr: u32,
+) -> VmResult<u32> {
+    do_humanize_address(&env, source_ptr, destination_ptr)
+}
+
+pub fn native_addr_validate<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     source_ptr: u32,
 ) -> VmResult<u32> {
     do_addr_validate(&env, source_ptr)
 }
 
-pub fn native_addr_canonicalize<A: BackendApi, S: Storage, Q: Querier>(
+pub fn native_addr_canonicalize<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     source_ptr: u32,
     destination_ptr: u32,
@@ -88,7 +105,7 @@ pub fn native_addr_canonicalize<A: BackendApi, S: Storage, Q: Querier>(
     do_addr_canonicalize(&env, source_ptr, destination_ptr)
 }
 
-pub fn native_addr_humanize<A: BackendApi, S: Storage, Q: Querier>(
+pub fn native_addr_humanize<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     source_ptr: u32,
     destination_ptr: u32,
@@ -96,7 +113,7 @@ pub fn native_addr_humanize<A: BackendApi, S: Storage, Q: Querier>(
     do_addr_humanize(&env, source_ptr, destination_ptr)
 }
 
-pub fn native_secp256k1_verify<A: BackendApi, S: Storage, Q: Querier>(
+pub fn native_secp256k1_verify<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     hash_ptr: u32,
     signature_ptr: u32,
@@ -105,7 +122,7 @@ pub fn native_secp256k1_verify<A: BackendApi, S: Storage, Q: Querier>(
     do_secp256k1_verify(env, hash_ptr, signature_ptr, pubkey_ptr)
 }
 
-pub fn native_secp256k1_recover_pubkey<A: BackendApi, S: Storage, Q: Querier>(
+pub fn native_secp256k1_recover_pubkey<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     hash_ptr: u32,
     signature_ptr: u32,
@@ -114,7 +131,7 @@ pub fn native_secp256k1_recover_pubkey<A: BackendApi, S: Storage, Q: Querier>(
     do_secp256k1_recover_pubkey(env, hash_ptr, signature_ptr, recovery_param)
 }
 
-pub fn native_ed25519_verify<A: BackendApi, S: Storage, Q: Querier>(
+pub fn native_ed25519_verify<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     message_ptr: u32,
     signature_ptr: u32,
@@ -123,7 +140,7 @@ pub fn native_ed25519_verify<A: BackendApi, S: Storage, Q: Querier>(
     do_ed25519_verify(env, message_ptr, signature_ptr, pubkey_ptr)
 }
 
-pub fn native_ed25519_batch_verify<A: BackendApi, S: Storage, Q: Querier>(
+pub fn native_ed25519_batch_verify<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     messages_ptr: u32,
     signatures_ptr: u32,
@@ -132,7 +149,7 @@ pub fn native_ed25519_batch_verify<A: BackendApi, S: Storage, Q: Querier>(
     do_ed25519_batch_verify(env, messages_ptr, signatures_ptr, pubkeys_ptr)
 }
 
-pub fn native_query_chain<A: BackendApi, S: Storage, Q: Querier>(
+pub fn native_query_chain<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     request_ptr: u32,
 ) -> VmResult<u32> {
@@ -140,7 +157,7 @@ pub fn native_query_chain<A: BackendApi, S: Storage, Q: Querier>(
 }
 
 #[cfg(feature = "iterator")]
-pub fn native_db_scan<A: BackendApi, S: Storage, Q: Querier>(
+pub fn native_db_scan<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     start_ptr: u32,
     end_ptr: u32,
@@ -150,7 +167,7 @@ pub fn native_db_scan<A: BackendApi, S: Storage, Q: Querier>(
 }
 
 #[cfg(feature = "iterator")]
-pub fn native_db_next<A: BackendApi, S: Storage, Q: Querier>(
+pub fn native_db_next<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     iterator_id: u32,
 ) -> VmResult<u32> {
@@ -159,7 +176,7 @@ pub fn native_db_next<A: BackendApi, S: Storage, Q: Querier>(
 
 /// Prints a debug message to console.
 /// This does not charge gas, so debug printing should be disabled when used in a blockchain module.
-pub fn native_debug<A: BackendApi, S: Storage, Q: Querier>(
+pub fn native_debug<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     message_ptr: u32,
 ) -> VmResult<()> {
@@ -176,7 +193,7 @@ pub fn native_debug<A: BackendApi, S: Storage, Q: Querier>(
 //
 
 /// Reads a storage entry from the VM's storage into Wasm memory
-fn do_read<A: BackendApi, S: Storage, Q: Querier>(
+fn do_read<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     key_ptr: u32,
 ) -> VmResult<u32> {
@@ -194,7 +211,7 @@ fn do_read<A: BackendApi, S: Storage, Q: Querier>(
 }
 
 /// Writes a storage entry from Wasm memory into the VM's storage
-fn do_write<A: BackendApi, S: Storage, Q: Querier>(
+fn do_write<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     key_ptr: u32,
     value_ptr: u32,
@@ -214,7 +231,7 @@ fn do_write<A: BackendApi, S: Storage, Q: Querier>(
     Ok(())
 }
 
-fn do_remove<A: BackendApi, S: Storage, Q: Querier>(
+fn do_remove<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     key_ptr: u32,
 ) -> VmResult<()> {
@@ -232,7 +249,7 @@ fn do_remove<A: BackendApi, S: Storage, Q: Querier>(
     Ok(())
 }
 
-fn do_addr_validate<A: BackendApi, S: Storage, Q: Querier>(
+fn do_addr_validate<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     source_ptr: u32,
 ) -> VmResult<u32> {
@@ -246,7 +263,7 @@ fn do_addr_validate<A: BackendApi, S: Storage, Q: Querier>(
         Err(_) => return write_to_contract::<A, S, Q>(env, b"Input is not valid UTF-8"),
     };
 
-    let (result, gas_info) = env.api.canonical_address(&source_string);
+    let (result, gas_info) = env.api.canonical_address(&HumanAddr::from(source_string));
     process_gas_info::<A, S, Q>(env, gas_info)?;
     match result {
         Ok(_canonical) => Ok(0),
@@ -257,7 +274,7 @@ fn do_addr_validate<A: BackendApi, S: Storage, Q: Querier>(
     }
 }
 
-fn do_addr_canonicalize<A: BackendApi, S: Storage, Q: Querier>(
+fn do_addr_canonicalize<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     source_ptr: u32,
     destination_ptr: u32,
@@ -272,7 +289,7 @@ fn do_addr_canonicalize<A: BackendApi, S: Storage, Q: Querier>(
         Err(_) => return write_to_contract::<A, S, Q>(env, b"Input is not valid UTF-8"),
     };
 
-    let (result, gas_info) = env.api.canonical_address(&source_string);
+    let (result, gas_info) = env.api.canonical_address(&HumanAddr::from(source_string));
     process_gas_info::<A, S, Q>(env, gas_info)?;
     match result {
         Ok(canonical) => {
@@ -286,12 +303,14 @@ fn do_addr_canonicalize<A: BackendApi, S: Storage, Q: Querier>(
     }
 }
 
-fn do_addr_humanize<A: BackendApi, S: Storage, Q: Querier>(
+fn do_addr_humanize<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     source_ptr: u32,
     destination_ptr: u32,
 ) -> VmResult<u32> {
-    let canonical = read_region(&env.memory(), source_ptr, MAX_LENGTH_CANONICAL_ADDRESS)?;
+    let canonical = CanonicalAddr::from(
+        read_region(&env.memory(), source_ptr, MAX_LENGTH_CANONICAL_ADDRESS)?.as_slice(),
+    );
 
     let (result, gas_info) = env.api.human_address(&canonical);
     process_gas_info::<A, S, Q>(env, gas_info)?;
@@ -307,7 +326,67 @@ fn do_addr_humanize<A: BackendApi, S: Storage, Q: Querier>(
     }
 }
 
-fn do_secp256k1_verify<A: BackendApi, S: Storage, Q: Querier>(
+fn do_canonicalize_address<A: Api, S: Storage, Q: Querier>(
+    env: &Environment<A, S, Q>,
+    source_ptr: u32,
+    destination_ptr: u32,
+) -> VmResult<u32> {
+    let source_data = read_region(&env.memory(), source_ptr, MAX_LENGTH_HUMAN_ADDRESS)?;
+    if source_data.is_empty() {
+        return Ok(write_to_contract::<A, S, Q>(env, b"Input is empty")?);
+    }
+
+    let source_string = match String::from_utf8(source_data) {
+        Ok(s) => s,
+        Err(_) => {
+            return Ok(write_to_contract::<A, S, Q>(
+                env,
+                b"Input is not valid UTF-8",
+            )?)
+        }
+    };
+    let human: HumanAddr = source_string.into();
+
+    let (result, gas_info) = env.api.canonical_address(&human);
+    process_gas_info::<A, S, Q>(env, gas_info)?;
+    match result {
+        Ok(canonical) => {
+            write_region(&env.memory(), destination_ptr, canonical.as_slice())?;
+            Ok(0)
+        }
+        Err(BackendError::UserErr { msg, .. }) => {
+            Ok(write_to_contract::<A, S, Q>(env, msg.as_bytes())?)
+        }
+        Err(err) => Err(VmError::from(err)),
+    }
+}
+
+fn do_humanize_address<A: Api, S: Storage, Q: Querier>(
+    env: &Environment<A, S, Q>,
+    source_ptr: u32,
+    destination_ptr: u32,
+) -> VmResult<u32> {
+    let canonical = Binary(read_region(
+        &env.memory(),
+        source_ptr,
+        MAX_LENGTH_CANONICAL_ADDRESS,
+    )?);
+
+    let (result, gas_info) = env.api.human_address(&CanonicalAddr(canonical));
+    process_gas_info::<A, S, Q>(env, gas_info)?;
+    match result {
+        Ok(human) => {
+            write_region(&env.memory(), destination_ptr, human.as_str().as_bytes())?;
+            Ok(0)
+        }
+        Err(BackendError::UserErr { msg, .. }) => {
+            Ok(write_to_contract::<A, S, Q>(env, msg.as_bytes())?)
+        }
+        Err(err) => Err(VmError::from(err)),
+    }
+}
+
+fn do_secp256k1_verify<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     hash_ptr: u32,
     signature_ptr: u32,
@@ -334,7 +413,7 @@ fn do_secp256k1_verify<A: BackendApi, S: Storage, Q: Querier>(
     ))
 }
 
-fn do_secp256k1_recover_pubkey<A: BackendApi, S: Storage, Q: Querier>(
+fn do_secp256k1_recover_pubkey<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     hash_ptr: u32,
     signature_ptr: u32,
@@ -367,7 +446,7 @@ fn do_secp256k1_recover_pubkey<A: BackendApi, S: Storage, Q: Querier>(
     }
 }
 
-fn do_ed25519_verify<A: BackendApi, S: Storage, Q: Querier>(
+fn do_ed25519_verify<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     message_ptr: u32,
     signature_ptr: u32,
@@ -396,7 +475,7 @@ fn do_ed25519_verify<A: BackendApi, S: Storage, Q: Querier>(
     ))
 }
 
-fn do_ed25519_batch_verify<A: BackendApi, S: Storage, Q: Querier>(
+fn do_ed25519_batch_verify<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     messages_ptr: u32,
     signatures_ptr: u32,
@@ -446,7 +525,7 @@ fn do_ed25519_batch_verify<A: BackendApi, S: Storage, Q: Querier>(
 }
 
 /// Creates a Region in the contract, writes the given data to it and returns the memory location
-fn write_to_contract<A: BackendApi, S: Storage, Q: Querier>(
+fn write_to_contract<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     input: &[u8],
 ) -> VmResult<u32> {
@@ -460,7 +539,7 @@ fn write_to_contract<A: BackendApi, S: Storage, Q: Querier>(
     Ok(target_ptr)
 }
 
-fn do_query_chain<A: BackendApi, S: Storage, Q: Querier>(
+fn do_query_chain<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     request_ptr: u32,
 ) -> VmResult<u32> {
@@ -476,7 +555,7 @@ fn do_query_chain<A: BackendApi, S: Storage, Q: Querier>(
 }
 
 #[cfg(feature = "iterator")]
-fn do_scan<A: BackendApi, S: Storage, Q: Querier>(
+fn do_scan<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     start_ptr: u32,
     end_ptr: u32,
@@ -497,7 +576,7 @@ fn do_scan<A: BackendApi, S: Storage, Q: Querier>(
 }
 
 #[cfg(feature = "iterator")]
-fn do_next<A: BackendApi, S: Storage, Q: Querier>(
+fn do_next<A: Api, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     iterator_id: u32,
 ) -> VmResult<u32> {
@@ -595,6 +674,8 @@ mod tests {
                 "query_chain" => Function::new_native(&store, |_a: u32| -> u32 { 0 }),
                 "addr_validate" => Function::new_native(&store, |_a: u32| -> u32 { 0 }),
                 "addr_canonicalize" => Function::new_native(&store, |_a: u32, _b: u32| -> u32 { 0 }),
+                "canonicalize_address" => Function::new_native(&store, |_a: u32, _b: u32| -> u32 { 0 }),
+                "humanize_address" => Function::new_native(&store, |_a: u32, _b: u32| -> u32 { 0 }),
                 "addr_humanize" => Function::new_native(&store, |_a: u32, _b: u32| -> u32 { 0 }),
                 "secp256k1_verify" => Function::new_native(&store, |_a: u32, _b: u32, _c: u32| -> u32 { 0 }),
                 "secp256k1_recover_pubkey" => Function::new_native(&store, |_a: u32, _b: u32, _c: u32| -> u64 { 0 }),

@@ -3,11 +3,9 @@ use std::ops::AddAssign;
 use std::string::FromUtf8Error;
 use thiserror::Error;
 
+use cosmwasm_std::{Binary, CanonicalAddr, ContractResult, HumanAddr, SystemResult};
 #[cfg(feature = "iterator")]
-use cosmwasm_std::Order;
-use cosmwasm_std::{Binary, ContractResult, SystemResult};
-
-pub type Pair<T = Vec<u8>> = (Vec<u8>, T);
+use cosmwasm_std::{Order, KV};
 
 #[derive(Copy, Clone, Debug)]
 pub struct GasInfo {
@@ -64,7 +62,7 @@ impl AddAssign for GasInfo {
 /// Designed to allow easy dependency injection at runtime.
 /// This cannot be copied or cloned since it would behave differently
 /// for mock storages and a bridge storage in the VM.
-pub struct Backend<A: BackendApi, S: Storage, Q: Querier> {
+pub struct Backend<A: Api, S: Storage, Q: Querier> {
     pub api: A,
     pub storage: S,
     pub querier: Q,
@@ -106,7 +104,7 @@ pub trait Storage {
     /// This call must not change data in the storage, but incrementing an iterator can be a mutating operation on
     /// the Storage implementation.
     #[cfg(feature = "iterator")]
-    fn next(&mut self, iterator_id: u32) -> BackendResult<Option<Pair>>;
+    fn next(&mut self, iterator_id: u32) -> BackendResult<Option<KV>>;
 
     fn set(&mut self, key: &[u8], value: &[u8]) -> BackendResult<()>;
 
@@ -117,7 +115,7 @@ pub trait Storage {
     fn remove(&mut self, key: &[u8]) -> BackendResult<()>;
 }
 
-/// Callbacks to system functions defined outside of the wasm modules.
+/// Api are callbacks to system functions defined outside of the wasm modules.
 /// This is a trait to allow Mocks in the test code.
 ///
 /// Currently it just supports address conversion, we could add eg. crypto functions here.
@@ -126,9 +124,9 @@ pub trait Storage {
 ///
 /// We can use feature flags to opt-in to non-essential methods
 /// for backwards compatibility in systems that don't have them all.
-pub trait BackendApi: Copy + Clone + Send {
-    fn canonical_address(&self, human: &str) -> BackendResult<Vec<u8>>;
-    fn human_address(&self, canonical: &[u8]) -> BackendResult<String>;
+pub trait Api: Copy + Clone + Send {
+    fn canonical_address(&self, human: &HumanAddr) -> BackendResult<CanonicalAddr>;
+    fn human_address(&self, canonical: &CanonicalAddr) -> BackendResult<HumanAddr>;
 }
 
 pub trait Querier {

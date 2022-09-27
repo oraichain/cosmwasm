@@ -1,11 +1,10 @@
-use parity_wasm::elements::{External, ImportEntry, Module};
+use parity_wasm::elements::{deserialize_buffer, External, ImportEntry, Module};
 use std::collections::BTreeSet;
 use std::collections::HashSet;
 
 use crate::errors::{VmError, VmResult};
 use crate::features::required_features_from_module;
 use crate::limited::LimitedDisplay;
-use crate::static_analysis::{deserialize_wasm, exported_functions};
 
 /// Lists all imports we provide upon instantiating the instance in Instance::from_module()
 /// This should be updated when new imports are added
@@ -13,15 +12,8 @@ const SUPPORTED_IMPORTS: &[&str] = &[
     "env.db_read",
     "env.db_write",
     "env.db_remove",
-    "env.addr_validate",
     "env.canonicalize_address",
-    "env.addr_canonicalize",
     "env.humanize_address",
-    "env.addr_humanize",
-    "env.secp256k1_verify",
-    "env.secp256k1_recover_pubkey",
-    "env.ed25519_verify",
-    "env.ed25519_batch_verify",
     "env.debug",
     "env.query_chain",
     #[cfg(feature = "iterator")]
@@ -31,21 +23,31 @@ const SUPPORTED_IMPORTS: &[&str] = &[
 ];
 
 /// Lists all entry points we expect to be present when calling a contract.
-/// Other optional exports exist, e.g. "execute", "migrate" and "query".
+/// Basically, anything that is used in calls.rs
 /// This is unlikely to change much, must be frozen at 1.0 to avoid breaking existing contracts
-/// uncomment interface_version_5 and instantiate to make compatible with 0.13.2
 const REQUIRED_EXPORTS: &[&str] = &[
-    // "interface_version_5",
-    // "instantiate",
+    "cosmwasm_vm_version_4",
+    "query",
+    "init",
+    "handle",
     "allocate",
     "deallocate",
 ];
 
 const MEMORY_LIMIT: u32 = 512; // in pages
 
+fn deserialize(wasm_code: &[u8]) -> VmResult<Module> {
+    deserialize_buffer(&wasm_code).map_err(|err| {
+        VmError::static_validation_err(format!(
+            "Wasm bytecode could not be deserialized. Deserialization error: \"{}\"",
+            err
+        ))
+    })
+}
+
 /// Checks if the data is valid wasm and compatibility with the CosmWasm API (imports and exports)
 pub fn check_wasm(wasm_code: &[u8], supported_features: &HashSet<String>) -> VmResult<()> {
-    let module = deserialize_wasm(wasm_code)?;
+    let module = deserialize(wasm_code)?;
     check_wasm_memories(&module)?;
     check_wasm_exports(&module)?;
     check_wasm_imports(&module, SUPPORTED_IMPORTS)?;
@@ -90,9 +92,16 @@ fn check_wasm_memories(module: &Module) -> VmResult<()> {
 }
 
 fn check_wasm_exports(module: &Module) -> VmResult<()> {
-    let available_exports: HashSet<String> = exported_functions(module);
+    let available_exports: Vec<String> = module.export_section().map_or(vec![], |export_section| {
+        export_section
+            .entries()
+            .iter()
+            .map(|entry| entry.field().to_string())
+            .collect()
+    });
+
     for required_export in REQUIRED_EXPORTS {
-        if !available_exports.contains(*required_export) {
+        if !available_exports.iter().any(|x| x == required_export) {
             return Err(VmError::static_validation_err(format!(
                 "Wasm contract doesn't have required export: \"{}\". Exports required by VM: {:?}. Contract version too old for this VM?",
                 required_export, REQUIRED_EXPORTS
@@ -153,13 +162,61 @@ fn check_wasm_features(module: &Module, supported_features: &HashSet<String>) ->
 mod tests {
     use super::*;
     use crate::errors::VmError;
+    use parity_wasm::elements::Internal;
+    use std::iter::FromIterator;
 
-    static CONTRACT_0_6: &[u8] = include_bytes!("../testdata/hackatom_0.6.wasm");
-    static CONTRACT_0_7: &[u8] = include_bytes!("../testdata/hackatom_0.7.wasm");
-    static CONTRACT: &[u8] = include_bytes!("../testdata/hackatom.wasm");
+    static CONTRACT_0_6: &[u8] = include_bytes!("../testdata/contract_0.6.wasm");
+    static CONTRACT_0_7: &[u8] = include_bytes!("../testdata/contract_0.7.wasm");
+    static CONTRACT: &[u8] = include_bytes!("../testdata/contract.wasm");
+    static CORRUPTED: &[u8] = include_bytes!("../testdata/corrupted.wasm");
 
     fn default_features() -> HashSet<String> {
-        ["staking".to_string()].iter().cloned().collect()
+        HashSet::from_iter(["staking".to_string()].iter().cloned())
+    }
+
+    #[test]
+    fn deserialize_works() {
+        let module = deserialize(CONTRACT).unwrap();
+        assert_eq!(module.version(), 1);
+
+        let exported_functions =
+            module
+                .export_section()
+                .unwrap()
+                .entries()
+                .iter()
+                .filter(|entry| {
+                    if let Internal::Function(_) = entry.internal() {
+                        true
+                    } else {
+                        false
+                    }
+                });
+        assert_eq!(exported_functions.count(), 7); // 6 required export plus "migrate"
+
+        let exported_memories = module
+            .export_section()
+            .unwrap()
+            .entries()
+            .iter()
+            .filter(|entry| {
+                if let Internal::Memory(_) = entry.internal() {
+                    true
+                } else {
+                    false
+                }
+            });
+        assert_eq!(exported_memories.count(), 1);
+    }
+
+    #[test]
+    fn deserialize_corrupted_data() {
+        match deserialize(CORRUPTED).unwrap_err() {
+            VmError::StaticValidationErr { msg, .. } => {
+                assert!(msg.starts_with("Wasm bytecode could not be deserialized."))
+            }
+            err => panic!("Unexpected error: {:?}", err),
+        }
     }
 
     #[test]
@@ -172,7 +229,7 @@ mod tests {
     fn check_wasm_old_contract() {
         match check_wasm(CONTRACT_0_7, &default_features()) {
             Err(VmError::StaticValidationErr { msg, .. }) => assert!(msg.starts_with(
-                "Wasm contract doesn't have required export: \"interface_version_5\""
+                "Wasm contract doesn't have required export: \"cosmwasm_vm_version_4\""
             )),
             Err(e) => panic!("Unexpected error {:?}", e),
             Ok(_) => panic!("This must not succeeed"),
@@ -180,7 +237,7 @@ mod tests {
 
         match check_wasm(CONTRACT_0_6, &default_features()) {
             Err(VmError::StaticValidationErr { msg, .. }) => assert!(msg.starts_with(
-                "Wasm contract doesn't have required export: \"interface_version_5\""
+                "Wasm contract doesn't have required export: \"cosmwasm_vm_version_4\""
             )),
             Err(e) => panic!("Unexpected error {:?}", e),
             Ok(_) => panic!("This must not succeeed"),
@@ -190,13 +247,13 @@ mod tests {
     #[test]
     fn check_wasm_memories_ok() {
         let wasm = wat::parse_str("(module (memory 1))").unwrap();
-        check_wasm_memories(&deserialize_wasm(&wasm).unwrap()).unwrap()
+        check_wasm_memories(&deserialize(&wasm).unwrap()).unwrap()
     }
 
     #[test]
     fn check_wasm_memories_no_memory() {
         let wasm = wat::parse_str("(module)").unwrap();
-        match check_wasm_memories(&deserialize_wasm(&wasm).unwrap()) {
+        match check_wasm_memories(&deserialize(&wasm).unwrap()) {
             Err(VmError::StaticValidationErr { msg, .. }) => {
                 assert!(msg.starts_with("Wasm contract doesn't have a memory section"));
             }
@@ -220,7 +277,7 @@ mod tests {
         ))
         .unwrap();
 
-        match check_wasm_memories(&deserialize_wasm(&wasm).unwrap()) {
+        match check_wasm_memories(&deserialize(&wasm).unwrap()) {
             Err(VmError::StaticValidationErr { msg, .. }) => {
                 assert!(msg.starts_with("Wasm contract must contain exactly one memory"));
             }
@@ -241,7 +298,7 @@ mod tests {
         ))
         .unwrap();
 
-        match check_wasm_memories(&deserialize_wasm(&wasm).unwrap()) {
+        match check_wasm_memories(&deserialize(&wasm).unwrap()) {
             Err(VmError::StaticValidationErr { msg, .. }) => {
                 assert!(msg.starts_with("Wasm contract must contain exactly one memory"));
             }
@@ -253,10 +310,10 @@ mod tests {
     #[test]
     fn check_wasm_memories_initial_size() {
         let wasm_ok = wat::parse_str("(module (memory 512))").unwrap();
-        check_wasm_memories(&deserialize_wasm(&wasm_ok).unwrap()).unwrap();
+        check_wasm_memories(&deserialize(&wasm_ok).unwrap()).unwrap();
 
         let wasm_too_big = wat::parse_str("(module (memory 513))").unwrap();
-        match check_wasm_memories(&deserialize_wasm(&wasm_too_big).unwrap()) {
+        match check_wasm_memories(&deserialize(&wasm_too_big).unwrap()) {
             Err(VmError::StaticValidationErr { msg, .. }) => {
                 assert!(msg.starts_with("Wasm contract memory's minimum must not exceed 512 pages"));
             }
@@ -268,7 +325,7 @@ mod tests {
     #[test]
     fn check_wasm_memories_maximum_size() {
         let wasm_max = wat::parse_str("(module (memory 1 5))").unwrap();
-        match check_wasm_memories(&deserialize_wasm(&wasm_max).unwrap()) {
+        match check_wasm_memories(&deserialize(&wasm_max).unwrap()) {
             Err(VmError::StaticValidationErr { msg, .. }) => {
                 assert!(msg.starts_with("Wasm contract memory's maximum must be unset"));
             }
@@ -280,7 +337,7 @@ mod tests {
     #[test]
     fn check_wasm_exports_works() {
         // this is invalid, as it doesn't contain all required exports
-        const WAT_MISSING_EXPORTS: &str = r#"
+        const WAT_MISSING_EXPORTS: &'static str = r#"
             (module
               (type $t0 (func (param i32) (result i32)))
               (func $add_one (export "add_one") (type $t0) (param $p0 i32) (result i32)
@@ -290,11 +347,11 @@ mod tests {
         "#;
         let wasm_missing_exports = wat::parse_str(WAT_MISSING_EXPORTS).unwrap();
 
-        let module = deserialize_wasm(&wasm_missing_exports).unwrap();
+        let module = deserialize(&wasm_missing_exports).unwrap();
         match check_wasm_exports(&module) {
             Err(VmError::StaticValidationErr { msg, .. }) => {
                 assert!(msg.starts_with(
-                    "Wasm contract doesn't have required export: \"interface_version_5\""
+                    "Wasm contract doesn't have required export: \"cosmwasm_vm_version_4\""
                 ));
             }
             Err(e) => panic!("Unexpected error {:?}", e),
@@ -304,11 +361,11 @@ mod tests {
 
     #[test]
     fn check_wasm_exports_of_old_contract() {
-        let module = deserialize_wasm(CONTRACT_0_7).unwrap();
+        let module = deserialize(CONTRACT_0_7).unwrap();
         match check_wasm_exports(&module) {
             Err(VmError::StaticValidationErr { msg, .. }) => {
                 assert!(msg.starts_with(
-                    "Wasm contract doesn't have required export: \"interface_version_5\""
+                    "Wasm contract doesn't have required export: \"cosmwasm_vm_version_4\""
                 ));
             }
             Err(e) => panic!("Unexpected error {:?}", e),
@@ -323,17 +380,12 @@ mod tests {
             (import "env" "db_read" (func (param i32 i32) (result i32)))
             (import "env" "db_write" (func (param i32 i32) (result i32)))
             (import "env" "db_remove" (func (param i32) (result i32)))
-            (import "env" "addr_validate" (func (param i32) (result i32)))
-            (import "env" "addr_canonicalize" (func (param i32 i32) (result i32)))
-            (import "env" "addr_humanize" (func (param i32 i32) (result i32)))
-            (import "env" "secp256k1_verify" (func (param i32 i32 i32) (result i32)))
-            (import "env" "secp256k1_recover_pubkey" (func (param i32 i32 i32) (result i64)))
-            (import "env" "ed25519_verify" (func (param i32 i32 i32) (result i32)))
-            (import "env" "ed25519_batch_verify" (func (param i32 i32 i32) (result i32)))
+            (import "env" "canonicalize_address" (func (param i32 i32) (result i32)))
+            (import "env" "humanize_address" (func (param i32 i32) (result i32)))
         )"#,
         )
         .unwrap();
-        check_wasm_imports(&deserialize_wasm(&wasm).unwrap(), SUPPORTED_IMPORTS).unwrap();
+        check_wasm_imports(&deserialize(&wasm).unwrap(), SUPPORTED_IMPORTS).unwrap();
     }
 
     #[test]
@@ -359,18 +411,18 @@ mod tests {
             "env.db_read",
             "env.db_write",
             "env.db_remove",
-            "env.addr_canonicalize",
-            "env.addr_humanize",
+            "env.canonicalize_address",
+            "env.humanize_address",
             "env.debug",
             "env.query_chain",
         ];
-        let result = check_wasm_imports(&deserialize_wasm(&wasm).unwrap(), supported_imports);
+        let result = check_wasm_imports(&deserialize(&wasm).unwrap(), supported_imports);
         match result.unwrap_err() {
             VmError::StaticValidationErr { msg, .. } => {
                 println!("{}", msg);
                 assert_eq!(
                     msg,
-                    r#"Wasm contract requires unsupported import: "env.foo". Required imports: {"env.bar", "env.foo", "env.spammyspam01", "env.spammyspam02", "env.spammyspam03", "env.spammyspam04", "env.spammyspam05", "env.spammyspam06", "env.spammyspam07", "env.spammyspam08", ... 2 more}. Available imports: ["env.db_read", "env.db_write", "env.db_remove", "env.addr_canonicalize", "env.addr_humanize", "env.debug", "env.query_chain"]."#
+                    r#"Wasm contract requires unsupported import: "env.foo". Required imports: {"env.bar", "env.foo", "env.spammyspam01", "env.spammyspam02", "env.spammyspam03", "env.spammyspam04", "env.spammyspam05", "env.spammyspam06", "env.spammyspam07", "env.spammyspam08", ... 2 more}. Available imports: ["env.db_read", "env.db_write", "env.db_remove", "env.canonicalize_address", "env.humanize_address", "env.debug", "env.query_chain"]."#
                 );
             }
             err => panic!("Unexpected error: {:?}", err),
@@ -379,7 +431,7 @@ mod tests {
 
     #[test]
     fn check_wasm_imports_of_old_contract() {
-        let module = deserialize_wasm(CONTRACT_0_7).unwrap();
+        let module = deserialize(CONTRACT_0_7).unwrap();
         let result = check_wasm_imports(&module, SUPPORTED_IMPORTS);
         match result.unwrap_err() {
             VmError::StaticValidationErr { msg, .. } => {
@@ -394,7 +446,7 @@ mod tests {
     #[test]
     fn check_wasm_imports_wrong_type() {
         let wasm = wat::parse_str(r#"(module (import "env" "db_read" (memory 1 1)))"#).unwrap();
-        let result = check_wasm_imports(&deserialize_wasm(&wasm).unwrap(), SUPPORTED_IMPORTS);
+        let result = check_wasm_imports(&deserialize(&wasm).unwrap(), SUPPORTED_IMPORTS);
         match result.unwrap_err() {
             VmError::StaticValidationErr { msg, .. } => {
                 assert!(
@@ -420,16 +472,17 @@ mod tests {
         )"#,
         )
         .unwrap();
-        let module = deserialize_wasm(&wasm).unwrap();
-        let supported = [
-            "water".to_string(),
-            "nutrients".to_string(),
-            "sun".to_string(),
-            "freedom".to_string(),
-        ]
-        .iter()
-        .cloned()
-        .collect();
+        let module = deserialize(&wasm).unwrap();
+        let supported = HashSet::from_iter(
+            [
+                "water".to_string(),
+                "nutrients".to_string(),
+                "sun".to_string(),
+                "freedom".to_string(),
+            ]
+            .iter()
+            .cloned(),
+        );
         check_wasm_features(&module, &supported).unwrap();
     }
 
@@ -448,17 +501,18 @@ mod tests {
         )"#,
         )
         .unwrap();
-        let module = deserialize_wasm(&wasm).unwrap();
+        let module = deserialize(&wasm).unwrap();
 
         // Support set 1
-        let supported = [
-            "water".to_string(),
-            "nutrients".to_string(),
-            "freedom".to_string(),
-        ]
-        .iter()
-        .cloned()
-        .collect();
+        let supported = HashSet::from_iter(
+            [
+                "water".to_string(),
+                "nutrients".to_string(),
+                "freedom".to_string(),
+            ]
+            .iter()
+            .cloned(),
+        );
         match check_wasm_features(&module, &supported).unwrap_err() {
             VmError::StaticValidationErr { msg, .. } => assert_eq!(
                 msg,
@@ -468,14 +522,15 @@ mod tests {
         }
 
         // Support set 2
-        let supported = [
-            "nutrients".to_string(),
-            "freedom".to_string(),
-            "Water".to_string(), // features are case sensitive (and lowercase by convention)
-        ]
-        .iter()
-        .cloned()
-        .collect();
+        let supported = HashSet::from_iter(
+            [
+                "nutrients".to_string(),
+                "freedom".to_string(),
+                "Water".to_string(), // features are case sensitive (and lowercase by convention)
+            ]
+            .iter()
+            .cloned(),
+        );
         match check_wasm_features(&module, &supported).unwrap_err() {
             VmError::StaticValidationErr { msg, .. } => assert_eq!(
                 msg,
@@ -485,7 +540,7 @@ mod tests {
         }
 
         // Support set 3
-        let supported = ["freedom".to_string()].iter().cloned().collect();
+        let supported = HashSet::from_iter(["freedom".to_string()].iter().cloned());
         match check_wasm_features(&module, &supported).unwrap_err() {
             VmError::StaticValidationErr { msg, .. } => assert_eq!(
                 msg,
@@ -495,7 +550,7 @@ mod tests {
         }
 
         // Support set 4
-        let supported = [].iter().cloned().collect();
+        let supported = HashSet::from_iter([].iter().cloned());
         match check_wasm_features(&module, &supported).unwrap_err() {
             VmError::StaticValidationErr { msg, .. } => assert_eq!(
                 msg,

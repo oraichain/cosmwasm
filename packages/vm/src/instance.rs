@@ -3,22 +3,20 @@ use std::ptr::NonNull;
 
 use wasmer::{Exports, Function, ImportObject, Instance as WasmerInstance, Module, Val};
 
-use crate::backend::{Backend, BackendApi, Querier, Storage};
+use crate::backend::{Api, Backend, Querier, Storage};
 use crate::conversion::{ref_to_u32, to_u32};
 use crate::environment::Environment;
 use crate::errors::{CommunicationError, VmError, VmResult};
 use crate::features::required_features_from_wasmer_instance;
 use crate::imports::{
-    native_addr_canonicalize, native_addr_humanize, native_addr_validate, native_db_read,
-    native_db_remove, native_db_write, native_debug, native_ed25519_batch_verify,
-    native_ed25519_verify, native_query_chain, native_secp256k1_recover_pubkey,
-    native_secp256k1_verify,
+    native_canonicalize_address, native_db_read, native_db_remove, native_db_write, native_debug,
+    native_humanize_address, native_query_chain,
 };
 #[cfg(feature = "iterator")]
 use crate::imports::{native_db_next, native_db_scan};
 use crate::memory::{read_region, write_region};
 use crate::size::Size;
-use crate::wasm_backend::compile;
+use crate::wasm_backend::compile_and_use;
 
 #[derive(Copy, Clone, Debug)]
 pub struct GasReport {
@@ -36,15 +34,15 @@ pub struct GasReport {
 #[derive(Copy, Clone, Debug)]
 pub struct InstanceOptions {
     pub gas_limit: u64,
+    /// Memory limit in bytes. Use a value that is divisible by the Wasm page size 65536, e.g. full MiBs.
+    pub memory_limit: Size,
     pub print_debug: bool,
 }
 
-pub struct Instance<A: BackendApi, S: Storage, Q: Querier> {
+pub struct Instance<A: Api, S: Storage, Q: Querier> {
     /// We put this instance in a box to maintain a constant memory address for the entire
     /// lifetime of the instance in the cache. This is needed e.g. when linking the wasmer
-    /// instance to a context. See also https://github.com/CosmWasm/cosmwasm/pull/245.
-    ///
-    /// This instance should only be accessed via the Environment, which provides safe access.
+    /// instance to a context. See also https://github.com/CosmWasm/cosmwasm/pull/245
     _inner: Box<WasmerInstance>,
     env: Environment<A, S, Q>,
     pub required_features: HashSet<String>,
@@ -52,7 +50,7 @@ pub struct Instance<A: BackendApi, S: Storage, Q: Querier> {
 
 impl<A, S, Q> Instance<A, S, Q>
 where
-    A: BackendApi + 'static, // 'static is needed here to allow copying API instances into closures
+    A: Api + 'static, // 'static is needed here to allow copying API instances into closures
     S: Storage + 'static, // 'static is needed here to allow using this in an Environment that is cloned into closures
     Q: Querier + 'static, // 'static is needed here to allow using this in an Environment that is cloned into closures
 {
@@ -62,9 +60,8 @@ where
         code: &[u8],
         backend: Backend<A, S, Q>,
         options: InstanceOptions,
-        memory_limit: Option<Size>,
     ) -> VmResult<Self> {
-        let module = compile(code, memory_limit)?;
+        let module = compile_and_use(code, options.memory_limit)?;
         Instance::from_module(&module, backend, options.gas_limit, options.print_debug)
     }
 
@@ -106,21 +103,13 @@ where
             Function::new_native_with_env(store, env.clone(), native_db_remove),
         );
 
-        // Reads human address from source_ptr and checks if it is valid.
-        // Returns 0 on if the input is valid. Returns a non-zero memory location to a Region containing an UTF-8 encoded error string for invalid inputs.
-        // Ownership of the input pointer is not transferred to the host.
-        env_imports.insert(
-            "addr_validate",
-            Function::new_native_with_env(store, env.clone(), native_addr_validate),
-        );        
-
         // Reads human address from source_ptr and writes canonicalized representation to destination_ptr.
         // A prepared and sufficiently large memory Region is expected at destination_ptr that points to pre-allocated memory.
         // Returns 0 on success. Returns a non-zero memory location to a Region containing an UTF-8 encoded error string for invalid inputs.
         // Ownership of both input and output pointer is not transferred to the host.
         env_imports.insert(
-            "addr_canonicalize",
-            Function::new_native_with_env(store, env.clone(), native_addr_canonicalize),
+            "canonicalize_address",
+            Function::new_native_with_env(store, env.clone(), native_canonicalize_address),
         );
 
         // Reads canonical address from source_ptr and writes humanized representation to destination_ptr.
@@ -128,39 +117,8 @@ where
         // Returns 0 on success. Returns a non-zero memory location to a Region containing an UTF-8 encoded error string for invalid inputs.
         // Ownership of both input and output pointer is not transferred to the host.
         env_imports.insert(
-            "addr_humanize",
-            Function::new_native_with_env(store, env.clone(), native_addr_humanize),
-        );
-
-        // Verifies message hashes against a signature with a public key, using the secp256k1 ECDSA parametrization.
-        // Returns 0 on verification success, 1 on verification failure, and values greater than 1 in case of error.
-        // Ownership of input pointers is not transferred to the host.
-        env_imports.insert(
-            "secp256k1_verify",
-            Function::new_native_with_env(store, env.clone(), native_secp256k1_verify),
-        );
-
-        env_imports.insert(
-            "secp256k1_recover_pubkey",
-            Function::new_native_with_env(store, env.clone(), native_secp256k1_recover_pubkey),
-        );
-
-        // Verifies a message against a signature with a public key, using the ed25519 EdDSA scheme.
-        // Returns 0 on verification success, 1 on verification failure, and values greater than 1 in case of error.
-        // Ownership of input pointers is not transferred to the host.
-        env_imports.insert(
-            "ed25519_verify",
-            Function::new_native_with_env(store, env.clone(), native_ed25519_verify),
-        );
-
-        // Verifies a batch of messages against a batch of signatures with a batch of public keys,
-        // using the ed25519 EdDSA scheme.
-        // Returns 0 on verification success (all batches verify correctly), 1 on verification failure, and values
-        // greater than 1 in case of error.
-        // Ownership of input pointers is not transferred to the host.
-        env_imports.insert(
-            "ed25519_batch_verify",
-            Function::new_native_with_env(store, env.clone(), native_ed25519_batch_verify),
+            "humanize_address",
+            Function::new_native_with_env(store, env.clone(), native_humanize_address),
         );
 
         // Allows the contract to emit debug logs that the host can either process or ignore.
@@ -198,17 +156,6 @@ where
         env_imports.insert(
             "db_next",
             Function::new_native_with_env(store, env.clone(), native_db_next),
-        );
-
-        // old support
-        env_imports.insert(
-            "canonicalize_address",
-            Function::new_native_with_env(store, env.clone(), native_addr_canonicalize),
-        );
-
-        env_imports.insert(
-            "humanize_address",
-            Function::new_native_with_env(store, env.clone(), native_addr_humanize),
         );
 
         import_obj.register("env", env_imports);
@@ -346,7 +293,7 @@ where
 mod tests {
     use super::*;
     use crate::backend::Storage;
-    use crate::call_instantiate;
+    use crate::call_init;
     use crate::errors::VmError;
     use crate::testing::{
         mock_backend, mock_env, mock_info, mock_instance, mock_instance_options,
@@ -354,21 +301,19 @@ mod tests {
         mock_instance_with_options, MockInstanceOptions,
     };
     use cosmwasm_std::{
-        coin, coins, from_binary, AllBalanceResponse, BalanceResponse, BankQuery, Empty,
+        coin, coins, from_binary, AllBalanceResponse, BalanceResponse, BankQuery, Empty, HumanAddr,
         QueryRequest,
     };
 
     const KIB: usize = 1024;
     const MIB: usize = 1024 * 1024;
     const DEFAULT_QUERY_GAS_LIMIT: u64 = 300_000;
-    static CONTRACT: &[u8] = include_bytes!("../testdata/hackatom.wasm");
+    static CONTRACT: &[u8] = include_bytes!("../testdata/contract.wasm");
 
     #[test]
     fn required_features_works() {
         let backend = mock_backend(&[]);
-        let (instance_options, memory_limit) = mock_instance_options();
-        let instance =
-            Instance::from_code(CONTRACT, backend, instance_options, memory_limit).unwrap();
+        let instance = Instance::from_code(CONTRACT, backend, mock_instance_options()).unwrap();
         assert_eq!(instance.required_features.len(), 0);
     }
 
@@ -389,8 +334,7 @@ mod tests {
         .unwrap();
 
         let backend = mock_backend(&[]);
-        let (instance_options, memory_limit) = mock_instance_options();
-        let instance = Instance::from_code(&wasm, backend, instance_options, memory_limit).unwrap();
+        let instance = Instance::from_code(&wasm, backend, mock_instance_options()).unwrap();
         assert_eq!(instance.required_features.len(), 3);
         assert!(instance.required_features.contains("nutrients"));
         assert!(instance.required_features.contains("sun"));
@@ -402,7 +346,7 @@ mod tests {
         let instance = mock_instance(&CONTRACT, &[]);
 
         instance
-            .call_function0("interface_version_5", &[])
+            .call_function0("cosmwasm_vm_version_4", &[])
             .expect("error calling function");
     }
 
@@ -432,7 +376,7 @@ mod tests {
         let mut instance = mock_instance_with_options(
             &CONTRACT,
             MockInstanceOptions {
-                memory_limit: Some(Size::mebi(500)),
+                memory_limit: Size::mebi(500),
                 ..Default::default()
             },
         );
@@ -491,7 +435,7 @@ mod tests {
         // set up an instance that will experience an error in an import
         let error_message = "Api failed intentionally";
         let mut instance = mock_instance_with_failing_api(&CONTRACT, &[], error_message);
-        let init_result = call_instantiate::<_, _, _, serde_json::Value>(
+        let init_result = call_init::<_, _, _, serde_json::Value>(
             &mut instance,
             &mock_env(),
             &mock_info("someone", &[]),
@@ -545,8 +489,10 @@ mod tests {
 
                 (type (func))
                 (func (type 0) nop)
-                (export "interface_version_5" (func 0))
-                (export "instantiate" (func 0))
+                (export "cosmwasm_vm_version_4" (func 0))
+                (export "init" (func 0))
+                (export "handle" (func 0))
+                (export "query" (func 0))
                 (export "allocate" (func 0))
                 (export "deallocate" (func 0))
             )"#,
@@ -563,8 +509,10 @@ mod tests {
 
                 (type (func))
                 (func (type 0) nop)
-                (export "interface_version_5" (func 0))
-                (export "instantiate" (func 0))
+                (export "cosmwasm_vm_version_4" (func 0))
+                (export "init" (func 0))
+                (export "handle" (func 0))
+                (export "query" (func 0))
                 (export "allocate" (func 0))
                 (export "deallocate" (func 0))
             )"#,
@@ -610,14 +558,14 @@ mod tests {
 
         // init contract
         let info = mock_info("creator", &coins(1000, "earth"));
-        let msg = br#"{"verifier": "verifies", "beneficiary": "benefits"}"#;
-        call_instantiate::<_, _, _, Empty>(&mut instance, &mock_env(), &info, msg)
+        let msg = r#"{"verifier": "verifies", "beneficiary": "benefits"}"#.as_bytes();
+        call_init::<_, _, _, Empty>(&mut instance, &mock_env(), &info, msg)
             .unwrap()
             .unwrap();
 
         let report2 = instance.create_gas_report();
-        assert_eq!(report2.used_externally, 73);
-        assert_eq!(report2.used_internally, 38804);
+        assert_eq!(report2.used_externally, 146);
+        assert_eq!(report2.used_internally, 67318);
         assert_eq!(report2.limit, LIMIT);
         assert_eq!(
             report2.remaining,
@@ -682,7 +630,7 @@ mod tests {
 
     #[test]
     fn with_querier_works_readonly() {
-        let rich_addr = String::from("foobar");
+        let rich_addr = HumanAddr::from("foobar");
         let rich_balance = vec![coin(10000, "gold"), coin(8000, "silver")];
         let mut instance = mock_instance_with_balances(&CONTRACT, &[(&rich_addr, &rich_balance)]);
 
@@ -737,7 +685,7 @@ mod tests {
     /// This is needed for writing intagration tests in which the balance of a contract changes over time
     #[test]
     fn with_querier_allows_updating_balances() {
-        let rich_addr = String::from("foobar");
+        let rich_addr = HumanAddr::from("foobar");
         let rich_balance1 = vec![coin(10000, "gold"), coin(500, "silver")];
         let rich_balance2 = vec![coin(10000, "gold"), coin(8000, "silver")];
         let mut instance = mock_instance_with_balances(&CONTRACT, &[(&rich_addr, &rich_balance1)]);
@@ -798,10 +746,10 @@ mod tests {
 mod singlepass_tests {
     use cosmwasm_std::{coins, Empty};
 
-    use crate::calls::{call_execute, call_instantiate, call_query};
+    use crate::calls::{call_handle, call_init, call_query};
     use crate::testing::{mock_env, mock_info, mock_instance, mock_instance_with_gas_limit};
 
-    static CONTRACT: &[u8] = include_bytes!("../testdata/hackatom.wasm");
+    static CONTRACT: &[u8] = include_bytes!("../testdata/contract.wasm");
 
     #[test]
     fn contract_deducts_gas_init() {
@@ -810,36 +758,36 @@ mod singlepass_tests {
 
         // init contract
         let info = mock_info("creator", &coins(1000, "earth"));
-        let msg = br#"{"verifier": "verifies", "beneficiary": "benefits"}"#;
-        call_instantiate::<_, _, _, Empty>(&mut instance, &mock_env(), &info, msg)
+        let msg = r#"{"verifier": "verifies", "beneficiary": "benefits"}"#.as_bytes();
+        call_init::<_, _, _, Empty>(&mut instance, &mock_env(), &info, msg)
             .unwrap()
             .unwrap();
 
         let init_used = orig_gas - instance.get_gas_left();
-        assert_eq!(init_used, 38877);
+        assert_eq!(init_used, 67464);
     }
 
     #[test]
-    fn contract_deducts_gas_execute() {
+    fn contract_deducts_gas_handle() {
         let mut instance = mock_instance(&CONTRACT, &[]);
 
         // init contract
         let info = mock_info("creator", &coins(1000, "earth"));
-        let msg = br#"{"verifier": "verifies", "beneficiary": "benefits"}"#;
-        call_instantiate::<_, _, _, Empty>(&mut instance, &mock_env(), &info, msg)
+        let msg = r#"{"verifier": "verifies", "beneficiary": "benefits"}"#.as_bytes();
+        call_init::<_, _, _, Empty>(&mut instance, &mock_env(), &info, msg)
             .unwrap()
             .unwrap();
 
         // run contract - just sanity check - results validate in contract unit tests
-        let gas_before_execute = instance.get_gas_left();
+        let gas_before_handle = instance.get_gas_left();
         let info = mock_info("verifies", &coins(15, "earth"));
         let msg = br#"{"release":{}}"#;
-        call_execute::<_, _, _, Empty>(&mut instance, &mock_env(), &info, msg)
+        call_handle::<_, _, _, Empty>(&mut instance, &mock_env(), &info, msg)
             .unwrap()
             .unwrap();
 
-        let execute_used = gas_before_execute - instance.get_gas_left();
-        assert_eq!(execute_used, 157981);
+        let handle_used = gas_before_handle - instance.get_gas_left();
+        assert_eq!(handle_used, 194543);
     }
 
     #[test]
@@ -848,8 +796,8 @@ mod singlepass_tests {
 
         // init contract
         let info = mock_info("creator", &coins(1000, "earth"));
-        let msg = br#"{"verifier": "verifies", "beneficiary": "benefits"}"#;
-        let res = call_instantiate::<_, _, _, Empty>(&mut instance, &mock_env(), &info, msg);
+        let msg = r#"{"verifier": "verifies", "beneficiary": "benefits"}"#.as_bytes();
+        let res = call_init::<_, _, _, Empty>(&mut instance, &mock_env(), &info, msg);
         assert!(res.is_err());
     }
 
@@ -859,20 +807,20 @@ mod singlepass_tests {
 
         // init contract
         let info = mock_info("creator", &coins(1000, "earth"));
-        let msg = br#"{"verifier": "verifies", "beneficiary": "benefits"}"#;
-        let _res = call_instantiate::<_, _, _, Empty>(&mut instance, &mock_env(), &info, msg)
+        let msg = r#"{"verifier": "verifies", "beneficiary": "benefits"}"#.as_bytes();
+        let _res = call_init::<_, _, _, Empty>(&mut instance, &mock_env(), &info, msg)
             .unwrap()
             .unwrap();
 
         // run contract - just sanity check - results validate in contract unit tests
         let gas_before_query = instance.get_gas_left();
         // we need to encode the key in base64
-        let msg = br#"{"verifier":{}}"#;
+        let msg = r#"{"verifier":{}}"#.as_bytes();
         let res = call_query(&mut instance, &mock_env(), msg).unwrap();
         let answer = res.unwrap();
         assert_eq!(answer.as_slice(), b"{\"verifier\":\"verifies\"}");
 
         let query_used = gas_before_query - instance.get_gas_left();
-        assert_eq!(query_used, 28999);
+        assert_eq!(query_used, 52471);
     }
 }

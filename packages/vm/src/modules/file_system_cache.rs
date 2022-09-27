@@ -62,25 +62,14 @@ impl FileSystemCache {
         }
     }
 
-    /// Loads a serialized module from the file system and returns a module (i.e. artifact + store),
-    /// along with the size of the serialized module.
-    /// The serialized module size is a good approximation (~100.06 %) of the in-memory module size.
-    /// It should not be considered as the exact in-memory module size.
-    pub fn load(&self, checksum: &Checksum, store: &Store) -> VmResult<Option<(Module, usize)>> {
+    /// Loads an artifact from the file system and returns a module (i.e. artifact + store).
+    pub fn load(&self, checksum: &Checksum, store: &Store) -> VmResult<Option<Module>> {
         let filename = checksum.to_hex();
         let file_path = self.latest_modules_path().join(filename);
 
         let result = unsafe { Module::deserialize_from_file(store, &file_path) };
         match result {
-            Ok(module) => {
-                let module_size = file_path
-                    .metadata()
-                    .map_err(|e| {
-                        VmError::cache_err(format!("Error getting module file size: {}", e))
-                    })?
-                    .len();
-                Ok(Some((module, module_size as usize)))
-            }
+            Ok(module) => Ok(Some(module)),
             Err(DeserializeError::Io(err)) => match err.kind() {
                 io::ErrorKind::NotFound => Ok(None),
                 _ => Err(VmError::cache_err(format!(
@@ -95,23 +84,16 @@ impl FileSystemCache {
         }
     }
 
-    /// Stores a serialized module to the file system. Returns the size of the serialized module.
-    /// The serialized module size is a good approximation (~100.06 %) of the in-memory module size.
-    /// It should not be considered as the exact in-memory module size.
-    pub fn store(&mut self, checksum: &Checksum, module: &Module) -> VmResult<usize> {
+    pub fn store(&mut self, checksum: &Checksum, module: &Module) -> VmResult<()> {
         let modules_dir = self.latest_modules_path();
         fs::create_dir_all(&modules_dir)
-            .map_err(|e| VmError::cache_err(format!("Error creating directory: {}", e)))?;
+            .map_err(|e| VmError::cache_err(format!("Error creating direcory: {}", e)))?;
         let filename = checksum.to_hex();
         let path = modules_dir.join(filename);
         module
-            .serialize_to_file(path.clone())
+            .serialize_to_file(path)
             .map_err(|e| VmError::cache_err(format!("Error writing module to disk: {}", e)))?;
-        let module_size = path
-            .metadata()
-            .map_err(|e| VmError::cache_err(format!("Error getting module file size: {}", e)))?
-            .len();
-        Ok(module_size as usize)
+        Ok(())
     }
 
     /// The path to the latest version of the modules.
@@ -124,12 +106,12 @@ impl FileSystemCache {
 mod tests {
     use super::*;
     use crate::size::Size;
-    use crate::wasm_backend::{compile, make_runtime_store};
+    use crate::wasm_backend::{compile_only, make_runtime_store};
     use tempfile::TempDir;
     use wasmer::{imports, Instance as WasmerInstance};
     use wasmer_middlewares::metering::set_remaining_points;
 
-    const TESTING_MEMORY_LIMIT: Option<Size> = Some(Size::mebi(16));
+    const TESTING_MEMORY_LIMIT: Size = Size::mebi(16);
     const TESTING_GAS_LIMIT: u64 = 5_000;
 
     #[test]
@@ -156,7 +138,7 @@ mod tests {
         assert!(cached.is_none());
 
         // Store module
-        let module = compile(&wasm, None).unwrap();
+        let module = compile_only(&wasm).unwrap();
         cache.store(&checksum, &module).unwrap();
 
         // Load module
@@ -167,8 +149,7 @@ mod tests {
         // Check the returned module is functional.
         // This is not really testing the cache API but better safe than sorry.
         {
-            let (cached_module, module_size) = cached.unwrap();
-            assert_eq!(module_size, module.serialize().unwrap().len());
+            let cached_module = cached.unwrap();
             let import_object = imports! {};
             let instance = WasmerInstance::new(&cached_module, &import_object).unwrap();
             set_remaining_points(&instance, TESTING_GAS_LIMIT);
