@@ -3,9 +3,11 @@ use std::ops::AddAssign;
 use std::string::FromUtf8Error;
 use thiserror::Error;
 
-use cosmwasm_std::{Binary, ContractResult, SystemResult};
 #[cfg(feature = "iterator")]
-use cosmwasm_std::{Order, Pair};
+use cosmwasm_std::Order;
+use cosmwasm_std::{Binary, ContractResult, SystemResult};
+
+pub type Pair<T = Vec<u8>> = (Vec<u8>, T);
 
 #[derive(Copy, Clone, Debug)]
 pub struct GasInfo {

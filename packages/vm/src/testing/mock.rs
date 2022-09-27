@@ -1,5 +1,5 @@
 use cosmwasm_std::testing::{digit_sum, riffle_shuffle};
-use cosmwasm_std::{Addr, BlockInfo, Coin, ContractInfo, Env, MessageInfo, Timestamp};
+use cosmwasm_std::{BlockInfo, Coin, ContractInfo, Env, HumanAddr, MessageInfo};
 
 use super::querier::MockQuerier;
 use super::storage::MockStorage;
@@ -15,14 +15,17 @@ pub fn mock_backend(contract_balance: &[Coin]) -> Backend<MockApi, MockStorage, 
     Backend {
         api: MockApi::default(),
         storage: MockStorage::default(),
-        querier: MockQuerier::new(&[(MOCK_CONTRACT_ADDR, contract_balance)]),
+        querier: MockQuerier::new(&[(
+            &HumanAddr(MOCK_CONTRACT_ADDR.to_string()),
+            contract_balance,
+        )]),
     }
 }
 
 /// Initializes the querier along with the mock_dependencies.
 /// Sets all balances provided (yoy must explicitly set contract balance if desired)
 pub fn mock_backend_with_balances(
-    balances: &[(&str, &[Coin])],
+    balances: &[(&HumanAddr, &[Coin])],
 ) -> Backend<MockApi, MockStorage, MockQuerier> {
     Backend {
         api: MockApi::default(),
@@ -144,11 +147,12 @@ pub fn mock_env() -> Env {
     Env {
         block: BlockInfo {
             height: 12_345,
-            time: Timestamp::from_nanos(1_571_797_419_879_305_533),
+            time: 1_571_797_419_879_305_533,
+            time_nanos: 0,
             chain_id: "cosmos-testnet-14002".to_string(),
         },
         contract: ContractInfo {
-            address: Addr::unchecked(MOCK_CONTRACT_ADDR),
+            address: HumanAddr(MOCK_CONTRACT_ADDR.to_string()),
         },
     }
 }
@@ -157,8 +161,8 @@ pub fn mock_env() -> Env {
 /// This is intended for use in test code only.
 pub fn mock_info(sender: &str, funds: &[Coin]) -> MessageInfo {
     MessageInfo {
-        sender: Addr::unchecked(sender),
-        funds: funds.to_vec(),
+        sender: HumanAddr(sender.to_string()),
+        sent_funds: funds.to_vec(),
     }
 }
 
@@ -174,7 +178,7 @@ mod tests {
         assert_eq!(
             info,
             MessageInfo {
-                sender: Addr::unchecked("my name"),
+                sender: HumanAddr("my name".to_string()),
                 funds: vec![Coin {
                     amount: 100u128.into(),
                     denom: "atom".into(),

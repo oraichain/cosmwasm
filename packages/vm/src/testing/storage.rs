@@ -7,7 +7,7 @@ use std::convert::TryInto;
 use std::ops::{Bound, RangeBounds};
 
 #[cfg(feature = "iterator")]
-use cosmwasm_std::{Order, Pair};
+use cosmwasm_std::Order;
 
 #[cfg(feature = "iterator")]
 use crate::BackendError;
@@ -18,6 +18,8 @@ const GAS_COST_LAST_ITERATION: u64 = 37;
 
 #[cfg(feature = "iterator")]
 const GAS_COST_RANGE: u64 = 11;
+
+pub type Pair<T = Vec<u8>> = (Vec<u8>, T);
 
 #[cfg(feature = "iterator")]
 #[derive(Default, Debug)]

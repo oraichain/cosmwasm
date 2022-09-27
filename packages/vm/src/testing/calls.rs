@@ -5,10 +5,11 @@ use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Serialize};
 use std::fmt;
 
-use cosmwasm_std::{ContractResult, Env, MessageInfo, QueryResponse, Reply, Response};
+use cosmwasm_std::{ContractResult, Env, MessageInfo, QueryResponse};
 
 use crate::calls::{
-    call_execute, call_instantiate, call_migrate, call_query, call_reply, call_sudo,
+    call_execute, call_instantiate, call_migrate, call_query, call_reply, call_sudo, Reply,
+    Response,
 };
 use crate::instance::Instance;
 use crate::serde::to_vec;

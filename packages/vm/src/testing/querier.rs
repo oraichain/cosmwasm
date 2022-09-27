@@ -2,7 +2,7 @@ use serde::de::DeserializeOwned;
 
 use cosmwasm_std::testing::{MockQuerier as StdMockQuerier, MockQuerierCustomHandlerResult};
 use cosmwasm_std::{
-    to_binary, to_vec, Binary, Coin, ContractResult, CustomQuery, Empty, Querier as _,
+    to_binary, to_vec, Binary, Coin, ContractResult, CustomQuery, Empty, HumanAddr, Querier as _,
     QueryRequest, SystemError, SystemResult,
 };
 
@@ -21,7 +21,7 @@ pub struct MockQuerier<C: CustomQuery + DeserializeOwned = Empty> {
 }
 
 impl<C: CustomQuery + DeserializeOwned> MockQuerier<C> {
-    pub fn new(balances: &[(&str, &[Coin])]) -> Self {
+    pub fn new(balances: &[(&HumanAddr, &[Coin])]) -> Self {
         MockQuerier {
             querier: StdMockQuerier::new(balances),
         }
@@ -33,7 +33,7 @@ impl<C: CustomQuery + DeserializeOwned> MockQuerier<C> {
         addr: U,
         balance: Vec<Coin>,
     ) -> Option<Vec<Coin>> {
-        self.querier.update_balance(addr, balance)
+        self.querier.update_balance(HumanAddr(addr.into()), balance)
     }
 
     #[cfg(feature = "staking")]

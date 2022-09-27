@@ -1,3 +1,4 @@
+use ::serde::Deserialize;
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -5,7 +6,8 @@ use std::fmt;
 use wasmer::Val;
 
 use cosmwasm_std::{
-    Coin, ContractInfo, ContractResult, Env, MessageInfo, QueryResponse, Reply, Response,
+    Attribute, Binary, Coin, ContractInfo, ContractResult, CosmosMsg, Empty, Env, MessageInfo,
+    QueryResponse,
 };
 
 use crate::backend::{BackendApi, Querier, Storage};
@@ -21,10 +23,140 @@ const MAX_LENGTH_SUDO: usize = 100_000;
 const MAX_LENGTH_SUBCALL_RESPONSE: usize = 100_000;
 const MAX_LENGTH_QUERY: usize = 100_000;
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct Response<T = Empty>
+where
+    T: Clone + fmt::Debug + PartialEq + JsonSchema,
+{
+    /// Optional list of "subcalls" to make. These will be executed in order
+    /// (and this contract's subcall_response entry point invoked)
+    /// *before* any of the "fire and forget" messages get executed.
+    pub submessages: Vec<SubMsg<T>>,
+    /// After any submessages are processed, these are all dispatched in the host blockchain.
+    /// If they all succeed, then the transaction is committed. If any fail, then the transaction
+    /// and any local contract state changes are reverted.
+    pub messages: Vec<CosmosMsg<T>>,
+    /// The attributes that will be emitted as part of a "wasm" event
+    pub attributes: Vec<Attribute>,
+    pub data: Option<Binary>,
+}
+
+impl<T> Default for Response<T>
+where
+    T: Clone + fmt::Debug + PartialEq + JsonSchema,
+{
+    fn default() -> Self {
+        Response {
+            submessages: vec![],
+            messages: vec![],
+            attributes: vec![],
+            data: None,
+        }
+    }
+}
+
+impl<T> Response<T>
+where
+    T: Clone + fmt::Debug + PartialEq + JsonSchema,
+{
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn add_attribute<K: Into<String>, V: Into<String>>(&mut self, key: K, value: V) {
+        self.attributes.push(Attribute {
+            key: key.into(),
+            value: value.into(),
+        });
+    }
+
+    pub fn add_message<U: Into<CosmosMsg<T>>>(&mut self, msg: U) {
+        self.messages.push(msg.into());
+    }
+
+    pub fn add_submessage<U: Into<CosmosMsg<T>>>(
+        &mut self,
+        id: u64,
+        msg: U,
+        gas_limit: Option<u64>,
+        reply_on: ReplyOn,
+    ) {
+        let sub = SubMsg {
+            id,
+            msg: msg.into(),
+            gas_limit,
+            reply_on,
+        };
+        self.submessages.push(sub);
+    }
+
+    pub fn set_data<U: Into<Binary>>(&mut self, data: U) {
+        self.data = Some(data.into());
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ReplyOn {
+    /// Always perform a callback after SubMsg is processed
+    Always,
+    /// Only callback if SubMsg returned an error, no callback on success case
+    Error,
+    /// Only callback if SubMsg was successful, no callback on error case
+    Success,
+}
+
+impl Default for ReplyOn {
+    fn default() -> Self {
+        ReplyOn::Always
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct SubMsg<T = Empty>
+where
+    T: Clone + fmt::Debug + PartialEq + JsonSchema,
+{
+    pub id: u64,
+    pub msg: CosmosMsg<T>,
+    pub gas_limit: Option<u64>,
+    pub reply_on: ReplyOn,
+}
+/// The Result object returned to subcall_response. We always get the same id back
+/// and then must handle success and error cases ourselves
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct Reply {
+    pub id: u64,
+    pub result: ContractResult<SubcallResponse>,
+}
+
+/// The information we get back from a successful sub-call, with full sdk events
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct SubcallResponse {
+    pub events: Vec<Event>,
+    pub data: Option<Binary>,
+}
+
 #[derive(Serialize)]
 struct MessageInfoV0_13_2 {
     pub sender: String,
     pub sent_funds: Vec<Coin>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct Event {
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub attributes: Vec<Attribute>,
+}
+
+impl Event {
+    pub fn new(kind: &str, attributes: Vec<Attribute>) -> Self {
+        Event {
+            kind: kind.to_string(),
+            attributes,
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -42,26 +174,27 @@ pub struct BlockInfoV0_13_2 {
 }
 
 pub(crate) fn get_old_env(env: &[u8]) -> VmResult<Vec<u8>> {
-    let env_struct: Env = from_slice(env)?;
-    let old_env_struct = EnvV0_13_2 {
-        block: BlockInfoV0_13_2 {
-            // time in seconds
-            time: env_struct.block.time.nanos() / 1_000_000_000,
-            time_nanos: env_struct.block.time.nanos(),
-            height: env_struct.block.height,
-            chain_id: env_struct.block.chain_id,
-        },
-        contract: env_struct.contract,
-    };
+    // let env_struct: Env = from_slice(env)?;
+    // let old_env_struct = EnvV0_13_2 {
+    //     block: BlockInfoV0_13_2 {
+    //         // time in seconds
+    //         time: env_struct.block.time.nanos() / 1_000_000_000,
+    //         time_nanos: env_struct.block.time.nanos(),
+    //         height: env_struct.block.height,
+    //         chain_id: env_struct.block.chain_id,
+    //     },
+    //     contract: env_struct.contract,
+    // };
 
-    to_vec(&old_env_struct)
+    // to_vec(&old_env_struct)
+    return Ok(env.to_vec());
 }
 
 pub(crate) fn get_old_info(info: &[u8]) -> VmResult<Vec<u8>> {
     let info_struct: MessageInfo = from_slice(info)?;
     let old_info_struct = MessageInfoV0_13_2 {
         sender: info_struct.sender.to_string(),
-        sent_funds: info_struct.funds,
+        sent_funds: info_struct.sent_funds,
     };
 
     to_vec(&old_info_struct)
