@@ -53,6 +53,8 @@ extern "C" {
     fn groth16_verify(input_ptr: u32, proof_ptr: u32, vk_ptr: u32) -> u32;
     /// poseidon hash
     fn poseidon_hash(inputs_ptr: u32, hash_ptr: u32) -> u32;
+    /// on curve hash
+    fn curve_hash(input_ptr: u32, hash_ptr: u32) -> u32;
 
     fn secp256k1_recover_pubkey(
         message_hash_ptr: u32,
@@ -312,6 +314,25 @@ impl Api for ExternalApi {
             let error = unsafe { consume_string_region_written_by_vm(result as *mut Region) };
             return Err(StdError::generic_err(format!(
                 "poseidon_hash errored: {}",
+                error
+            )));
+        }
+
+        let out = unsafe { consume_region(hash) };
+        Ok(out)
+    }
+
+    fn curve_hash(&self, input: &[u8]) -> StdResult<Vec<u8>> {
+        let input_send = build_region(input);
+        let input_send_ptr = &*input_send as *const Region as u32;
+
+        let hash = alloc(32); // hash
+
+        let result = unsafe { curve_hash(input_send_ptr, hash as u32) };
+        if result != 0 {
+            let error = unsafe { consume_string_region_written_by_vm(result as *mut Region) };
+            return Err(StdError::generic_err(format!(
+                "curve_hash errored: {}",
                 error
             )));
         }

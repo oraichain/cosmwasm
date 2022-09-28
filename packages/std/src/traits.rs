@@ -120,6 +120,8 @@ pub trait Api {
 
     fn poseidon_hash(&self, inputs: &[&[u8]]) -> StdResult<Vec<u8>>;
 
+    fn curve_hash(&self, input: &[u8]) -> StdResult<Vec<u8>>;
+
     fn secp256k1_recover_pubkey(
         &self,
         message_hash: &[u8],

@@ -27,6 +27,7 @@ const SUPPORTED_IMPORTS: &[&str] = &[
     "env.ed25519_batch_verify",
     "env.groth16_verify",
     "env.poseidon_hash",
+    "env.curve_hash",
     "env.debug",
     "env.query_chain",
     #[cfg(feature = "iterator")]

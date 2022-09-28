@@ -189,6 +189,13 @@ impl Api for MockApi {
         }
     }
 
+    fn curve_hash(&self, input: &[u8]) -> StdResult<Vec<u8>> {
+        match cosmwasm_crypto::Keccak256::hash(input) {
+            Ok(hash) => Ok(hash.to_vec()),
+            Err(_) => return Err(StdError::generic_err("curve hash error")),
+        }
+    }
+
     fn groth16_verify(
         &self,
         input: &[u8],

@@ -30,6 +30,8 @@ pub struct GasConfig {
     /// poseido hash cost
     pub poseidon_hash_cost: u64,
 
+    pub curve_hash_cost: u64,
+
     /// secp256k1 public key recovery cost
     pub secp256k1_recover_pubkey_cost: u64,
     /// ed25519 signature verification cost
@@ -53,6 +55,9 @@ impl Default for GasConfig {
 
             // ~12 us in crypto benchmarks
             poseidon_hash_cost: 12 * GAS_PER_US,
+
+            // ~12 us in crypto benchmarks
+            curve_hash_cost: 12 * GAS_PER_US,
 
             // ~162 us in crypto benchmarks
             secp256k1_recover_pubkey_cost: 162 * GAS_PER_US,

@@ -4,7 +4,7 @@ use std::cmp::max;
 
 use cosmwasm_crypto::{
     ed25519_batch_verify, ed25519_verify, groth16_verify, secp256k1_recover_pubkey,
-    secp256k1_verify, CryptoError, ZKError,
+    secp256k1_verify, CryptoError, Keccak256, ZKError,
 };
 use cosmwasm_crypto::{
     ECDSA_PUBKEY_MAX_LEN, ECDSA_SIGNATURE_LEN, EDDSA_PUBKEY_LEN, GROTH16_PROOF_LEN,
@@ -286,6 +286,28 @@ pub fn do_poseidon_hash<A: BackendApi, S: Storage, Q: Querier>(
         }
         Err(_) => Err(VmError::GenericErr {
             msg: "poseidon hash error".to_string(),
+        }),
+    }
+}
+
+pub fn do_curve_hash<A: BackendApi, S: Storage, Q: Querier>(
+    env: &Environment<A, S, Q>,
+    input_ptr: u32,
+    hash_ptr: u32,
+) -> VmResult<u32> {
+    let input = read_region(&env.memory(), input_ptr, MESSAGE_HASH_MAX_LEN)?;
+    let result = Keccak256::hash(&input);
+    let gas_info = GasInfo::with_cost(env.gas_config.curve_hash_cost);
+
+    process_gas_info::<A, S, Q>(env, gas_info)?;
+
+    match result {
+        Ok(hash) => {
+            write_region(&env.memory(), hash_ptr, &hash)?;
+            Ok(0)
+        }
+        Err(_) => Err(VmError::GenericErr {
+            msg: "curve hash error".to_string(),
         }),
     }
 }
