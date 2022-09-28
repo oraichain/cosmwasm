@@ -3,10 +3,12 @@
 use std::cmp::max;
 
 use cosmwasm_crypto::{
-    ed25519_batch_verify, ed25519_verify, secp256k1_recover_pubkey, secp256k1_verify, CryptoError,
+    ed25519_batch_verify, ed25519_verify, groth16_verify, secp256k1_recover_pubkey,
+    secp256k1_verify, CryptoError, ZKError,
 };
 use cosmwasm_crypto::{
-    ECDSA_PUBKEY_MAX_LEN, ECDSA_SIGNATURE_LEN, EDDSA_PUBKEY_LEN, MESSAGE_HASH_MAX_LEN,
+    ECDSA_PUBKEY_MAX_LEN, ECDSA_SIGNATURE_LEN, EDDSA_PUBKEY_LEN, GROTH16_PROOF_LEN,
+    GROTH16_VERIFIER_KEY_LEN, MESSAGE_HASH_MAX_LEN,
 };
 
 #[cfg(feature = "iterator")]
@@ -237,6 +239,55 @@ pub fn do_secp256k1_verify<A: BackendApi, S: Storage, Q: Querier>(
         },
         |valid| if valid { 0 } else { 1 },
     ))
+}
+
+pub fn do_groth16_verify<A: BackendApi, S: Storage, Q: Querier>(
+    env: &Environment<A, S, Q>,
+    input_ptr: u32,
+    proof_ptr: u32,
+    vk_ptr: u32,
+) -> VmResult<u32> {
+    // nullifier hash + root hash + arbitrary hash
+    let input = read_region(&env.memory(), input_ptr, MESSAGE_HASH_MAX_LEN * 3)?;
+    let proof = read_region(&env.memory(), proof_ptr, GROTH16_PROOF_LEN)?;
+    let vk = read_region(&env.memory(), vk_ptr, GROTH16_VERIFIER_KEY_LEN)?;
+
+    let result = groth16_verify(&input, &proof, &vk);
+    let gas_info = GasInfo::with_cost(env.gas_config.groth16_verify_cost);
+    process_gas_info::<A, S, Q>(env, gas_info)?;
+    Ok(result.map_or_else(
+        |err| match err {
+            ZKError::VerifierError {} | ZKError::GenericErr { .. } => err.code(),
+        },
+        |valid| if valid { 0 } else { 1 },
+    ))
+}
+
+pub fn do_poseidon_hash<A: BackendApi, S: Storage, Q: Querier>(
+    env: &Environment<A, S, Q>,
+    inputs_ptr: u32,
+    hash_ptr: u32,
+) -> VmResult<u32> {
+    let inputs = read_region(
+        &env.memory(),
+        inputs_ptr,
+        (MESSAGE_HASH_MAX_LEN) * 4, // maximum 4 inputs
+    )?;
+    let inputs = decode_sections(&inputs);
+    let result = env.poseidon.hash(inputs);
+    let gas_info = GasInfo::with_cost(env.gas_config.poseidon_hash_cost);
+
+    process_gas_info::<A, S, Q>(env, gas_info)?;
+
+    match result {
+        Ok(hash) => {
+            write_region(&env.memory(), hash_ptr, &hash)?;
+            Ok(0)
+        }
+        Err(_) => Err(VmError::GenericErr {
+            msg: "poseidon hash error".to_string(),
+        }),
+    }
 }
 
 pub fn do_secp256k1_recover_pubkey<A: BackendApi, S: Storage, Q: Querier>(

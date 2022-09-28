@@ -111,6 +111,15 @@ pub trait Api {
         public_key: &[u8],
     ) -> Result<bool, VerificationError>;
 
+    fn groth16_verify(
+        &self,
+        message_hash: &[u8],
+        signature: &[u8],
+        public_key: &[u8],
+    ) -> Result<bool, VerificationError>;
+
+    fn poseidon_hash(&self, inputs: &[&[u8]]) -> StdResult<Vec<u8>>;
+
     fn secp256k1_recover_pubkey(
         &self,
         message_hash: &[u8],

@@ -1,3 +1,4 @@
+use cosmwasm_crypto::Poseidon;
 use serde::de::DeserializeOwned;
 #[cfg(feature = "stargate")]
 use serde::Serialize;
@@ -86,17 +87,19 @@ const SHUFFLES_DECODE: usize = 2;
 // MockPrecompiles zero pads all human addresses to make them fit the canonical_length
 // it trims off zeros for the reverse operation.
 // not really smart, but allows us to see a difference (and consistent length for canonical adddresses)
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct MockApi {
     /// Length of canonical addresses created with this API. Contracts should not make any assumtions
     /// what this value is.
     canonical_length: usize,
+    poseidon: Poseidon,
 }
 
 impl Default for MockApi {
     fn default() -> Self {
         MockApi {
             canonical_length: CANONICAL_LENGTH,
+            poseidon: Poseidon::new(),
         }
     }
 }
@@ -177,6 +180,23 @@ impl Api for MockApi {
             signature,
             public_key,
         )?)
+    }
+
+    fn poseidon_hash(&self, inputs: &[&[u8]]) -> StdResult<Vec<u8>> {
+        match self.poseidon.hash(inputs.to_vec()) {
+            Ok(hash) => Ok(hash.to_vec()),
+            Err(_) => return Err(StdError::generic_err("poseidon hash error")),
+        }
+    }
+
+    fn groth16_verify(
+        &self,
+        input: &[u8],
+        proof: &[u8],
+        vk: &[u8],
+    ) -> Result<bool, VerificationError> {
+        cosmwasm_crypto::groth16_verify(input, proof, vk)
+            .map_err(|_| VerificationError::GenericErr {})
     }
 
     fn secp256k1_recover_pubkey(

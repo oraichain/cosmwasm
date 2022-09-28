@@ -3,6 +3,7 @@ use std::borrow::{Borrow, BorrowMut};
 use std::ptr::NonNull;
 use std::sync::{Arc, RwLock};
 
+use cosmwasm_crypto::Poseidon;
 use wasmer::{HostEnvInitError, Instance as WasmerInstance, Memory, Val, WasmerEnv};
 use wasmer_middlewares::metering::{get_remaining_points, set_remaining_points, MeteringPoints};
 
@@ -22,6 +23,13 @@ pub struct GasConfig {
     /// Gas costs of VM (not Backend) provided functionality
     /// secp256k1 signature verification cost
     pub secp256k1_verify_cost: u64,
+
+    /// groth16 verification cost
+    pub groth16_verify_cost: u64,
+
+    /// poseido hash cost
+    pub poseidon_hash_cost: u64,
+
     /// secp256k1 public key recovery cost
     pub secp256k1_recover_pubkey_cost: u64,
     /// ed25519 signature verification cost
@@ -39,6 +47,13 @@ impl Default for GasConfig {
         Self {
             // ~154 us in crypto benchmarks
             secp256k1_verify_cost: 154 * GAS_PER_US,
+
+            // ~13000 us in crypto benchmarks
+            groth16_verify_cost: 13000 * GAS_PER_US,
+
+            // ~12 us in crypto benchmarks
+            poseidon_hash_cost: 12 * GAS_PER_US,
+
             // ~162 us in crypto benchmarks
             secp256k1_recover_pubkey_cost: 162 * GAS_PER_US,
             // ~63 us in crypto benchmarks
@@ -77,6 +92,7 @@ pub struct Environment<A: BackendApi, S: Storage, Q: Querier> {
     pub api: A,
     pub print_debug: bool,
     pub gas_config: GasConfig,
+    pub poseidon: Poseidon,
     data: Arc<RwLock<ContextData<S, Q>>>,
 }
 
@@ -90,6 +106,7 @@ impl<A: BackendApi, S: Storage, Q: Querier> Clone for Environment<A, S, Q> {
             api: self.api,
             print_debug: self.print_debug,
             gas_config: self.gas_config.clone(),
+            poseidon: self.poseidon.clone(),
             data: self.data.clone(),
         }
     }
@@ -107,6 +124,7 @@ impl<A: BackendApi, S: Storage, Q: Querier> Environment<A, S, Q> {
             api,
             print_debug,
             gas_config: GasConfig::default(),
+            poseidon: Poseidon::new(),
             data: Arc::new(RwLock::new(ContextData::new(gas_limit))),
         }
     }

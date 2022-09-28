@@ -25,6 +25,8 @@ const SUPPORTED_IMPORTS: &[&str] = &[
     "env.secp256k1_recover_pubkey",
     "env.ed25519_verify",
     "env.ed25519_batch_verify",
+    "env.groth16_verify",
+    "env.poseidon_hash",
     "env.debug",
     "env.query_chain",
     #[cfg(feature = "iterator")]
