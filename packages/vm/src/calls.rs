@@ -1,12 +1,9 @@
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
-use serde::Serialize;
 use std::fmt;
 use wasmer::Val;
 
-use cosmwasm_std::{
-    Coin, ContractInfo, ContractResult, Env, MessageInfo, QueryResponse, Reply, Response,
-};
+use cosmwasm_std::{ContractResult, Env, MessageInfo, QueryResponse, Reply, Response};
 
 use crate::backend::{BackendApi, Querier, Storage};
 use crate::conversion::ref_to_u32;
@@ -21,50 +18,27 @@ const MAX_LENGTH_SUDO: usize = 100_000;
 const MAX_LENGTH_SUBCALL_RESPONSE: usize = 100_000;
 const MAX_LENGTH_QUERY: usize = 100_000;
 
-#[derive(Serialize)]
-struct MessageInfoV0_13_2 {
-    pub sender: String,
-    pub sent_funds: Vec<Coin>,
-}
-
-#[derive(Serialize)]
-pub struct EnvV0_13_2 {
-    pub block: BlockInfoV0_13_2,
-    pub contract: ContractInfo,
-}
-
-#[derive(Serialize)]
-pub struct BlockInfoV0_13_2 {
-    pub height: u64,
-    pub time: u64,
-    pub time_nanos: u64,
-    pub chain_id: String,
-}
-
-pub(crate) fn get_old_env(env: &[u8]) -> VmResult<Vec<u8>> {
+fn get_old_env(env: &[u8]) -> VmResult<Vec<u8>> {
+    //deserialize back env
     let env_struct: Env = from_slice(env)?;
-    let old_env_struct = EnvV0_13_2 {
-        block: BlockInfoV0_13_2 {
-            // time in seconds
-            time: env_struct.block.time.nanos() / 1_000_000_000,
-            time_nanos: env_struct.block.time.nanos(),
-            height: env_struct.block.height,
-            chain_id: env_struct.block.chain_id,
-        },
-        contract: env_struct.contract,
-    };
 
-    to_vec(&old_env_struct)
+    Ok(format!(
+        r#"{{"block":{{"height":{},"time":{},"time_nanos":{},"chain_id":"{}"}},"contract":{{"address":"{}"}}}}"#,
+        env_struct.block.height,
+        env_struct.block.time.nanos() / 1_000_000_000,
+        env_struct.block.time.nanos(),
+        env_struct.block.chain_id,
+        env_struct.contract.address
+    ).into_bytes())
 }
 
-pub(crate) fn get_old_info(info: &[u8]) -> VmResult<Vec<u8>> {
-    let info_struct: MessageInfo = from_slice(info)?;
-    let old_info_struct = MessageInfoV0_13_2 {
-        sender: info_struct.sender.to_string(),
-        sent_funds: info_struct.funds,
-    };
-
-    to_vec(&old_info_struct)
+fn get_old_info(info: &[u8]) -> Vec<u8> {
+    // just replace the first funds key is ok
+    unsafe {
+        String::from_utf8_unchecked(info.to_vec())
+            .replacen("funds", "sent_funds", 1)
+            .into_bytes()
+    }
 }
 
 pub fn call_instantiate<A, S, Q, U>(
@@ -201,7 +175,7 @@ where
         return call_raw(
             instance,
             "init",
-            &[&get_old_env(env)?, &get_old_info(info)?, msg],
+            &[&get_old_env(env)?, &get_old_info(info), msg],
             MAX_LENGTH_INIT,
         );
     }
@@ -228,7 +202,7 @@ where
         return call_raw(
             instance,
             "handle",
-            &[&get_old_env(env)?, &get_old_info(info)?, msg],
+            &[&get_old_env(env)?, &get_old_info(info), msg],
             MAX_LENGTH_EXECUTE,
         );
     }
