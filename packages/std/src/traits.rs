@@ -113,7 +113,7 @@ pub trait Api {
 
     fn groth16_verify(
         &self,
-        message_hash: &[u8],
+        input: &[u8],
         signature: &[u8],
         public_key: &[u8],
     ) -> Result<bool, VerificationError>;

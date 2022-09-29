@@ -268,6 +268,7 @@ pub fn do_poseidon_hash<A: BackendApi, S: Storage, Q: Querier>(
     inputs_ptr: u32,
     hash_ptr: u32,
 ) -> VmResult<u32> {
+    // limit to 128 bytes
     let inputs = read_region(
         &env.memory(),
         inputs_ptr,
@@ -295,7 +296,8 @@ pub fn do_curve_hash<A: BackendApi, S: Storage, Q: Querier>(
     input_ptr: u32,
     hash_ptr: u32,
 ) -> VmResult<u32> {
-    let input = read_region(&env.memory(), input_ptr, MESSAGE_HASH_MAX_LEN)?;
+    // limit to 96 bytes
+    let input = read_region(&env.memory(), input_ptr, MESSAGE_HASH_MAX_LEN * 3)?;
     let result = Keccak256::hash(&input);
     let gas_info = GasInfo::with_cost(env.gas_config.curve_hash_cost);
 
