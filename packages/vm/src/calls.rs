@@ -18,7 +18,7 @@ const MAX_LENGTH_SUDO: usize = 100_000;
 const MAX_LENGTH_SUBCALL_RESPONSE: usize = 100_000;
 const MAX_LENGTH_QUERY: usize = 100_000;
 
-fn get_old_env(env: &[u8]) -> VmResult<Vec<u8>> {
+pub(crate) fn get_old_env(env: &[u8]) -> VmResult<Vec<u8>> {
     //deserialize back env
     let env_struct: Env = from_slice(env)?;
 
