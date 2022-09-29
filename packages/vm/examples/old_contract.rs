@@ -45,7 +45,7 @@ pub fn run_contract(src: &str) {
     let msg = br#"{"name": "name", "version": "version", "symbol": "symbol","minter":"creator"}"#;
     let env = to_vec(&mock_env()).unwrap();
     let info = to_vec(&mock_info("creator", &coins(1000, "earth"))).unwrap();
-    let contract_result = call_instantiate_raw::<_, _, _>(&mut instance, &env, &info, msg).unwrap();
+    let contract_result = call_instantiate_raw(&mut instance, &env, &info, msg).unwrap();
     println!(
         "Done instantiating contract: {}",
         String::from_utf8(contract_result).unwrap()
@@ -54,7 +54,7 @@ pub fn run_contract(src: &str) {
     let env = to_vec(&mock_env()).unwrap();
     let info = to_vec(&mock_info("creator", &coins(15, "earth"))).unwrap();
     let msg = br#"{"mint":{"token_id": "token_id", "owner": "owner", "name": "name", "description": "description", "image": "image"}}"#;
-    let contract_result = call_execute_raw::<_, _, _>(&mut instance, &env, &info, msg).unwrap();
+    let contract_result = call_execute_raw(&mut instance, &env, &info, msg).unwrap();
     println!(
         "Done excuting contract: {}",
         String::from_utf8(contract_result).unwrap()
@@ -62,7 +62,7 @@ pub fn run_contract(src: &str) {
 
     let env = to_vec(&mock_env()).unwrap();
     let msg = br#"{"all_tokens":{}}"#;
-    let data = call_query_raw::<_, _, _>(&mut instance, &env, msg).unwrap();
+    let data = call_query_raw(&mut instance, &env, msg).unwrap();
     let contract_result: ContractResult<QueryResponse> = from_slice(&data).unwrap();
     println!(
         "Done querying contract: {}",
