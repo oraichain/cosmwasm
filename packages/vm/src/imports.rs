@@ -257,7 +257,9 @@ pub fn do_groth16_verify<A: BackendApi, S: Storage, Q: Querier>(
     process_gas_info::<A, S, Q>(env, gas_info)?;
     Ok(result.map_or_else(
         |err| match err {
-            ZKError::VerifierError {} | ZKError::GenericErr { .. } => err.code(),
+            ZKError::VerifierError {}
+            | ZKError::InvalidHashInput {}
+            | ZKError::GenericErr { .. } => err.code(), // still return code, meaning verify is failed
         },
         |valid| if valid { 0 } else { 1 },
     ))

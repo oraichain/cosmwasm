@@ -7,12 +7,16 @@ pub type ZKResult<T> = core::result::Result<T, ZKError>;
 
 #[derive(Error, Debug)]
 pub enum ZKError {
-    #[error("Groth16 verification error")]
+    #[error("ZK verification error")]
     VerifierError {
         #[cfg(feature = "backtraces")]
         backtrace: Backtrace,
     },
-    #[error("Groth16 error: {msg}")]
+
+    #[error("Invalid hash input")]
+    InvalidHashInput {},
+
+    #[error("ZK error: {msg}")]
     GenericErr {
         msg: String,
         #[cfg(feature = "backtraces")]
@@ -21,13 +25,6 @@ pub enum ZKError {
 }
 
 impl ZKError {
-    pub fn verify_err() -> Self {
-        ZKError::VerifierError {
-            #[cfg(feature = "backtraces")]
-            backtrace: Backtrace::capture(),
-        }
-    }
-
     pub fn generic_err(msg: impl Into<String>) -> Self {
         ZKError::GenericErr {
             msg: msg.into(),
@@ -41,7 +38,8 @@ impl ZKError {
     pub fn code(&self) -> u32 {
         match self {
             ZKError::VerifierError { .. } => 3,
-            ZKError::GenericErr { .. } => 4,
+            ZKError::InvalidHashInput { .. } => 4,
+            ZKError::GenericErr { .. } => 10,
         }
     }
 }

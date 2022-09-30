@@ -296,9 +296,8 @@ impl Api for ExternalApi {
             0 => Ok(true),
             1 => Ok(false),
             2 => panic!("MessageTooLong must not happen. This is a bug in the VM."),
-            3 => Err(VerificationError::InvalidHashFormat), // Verification error
-            4 => Err(VerificationError::GenericErr),
-            error_code => Err(VerificationError::unknown_err(error_code)),
+            10 => Err(VerificationError::GenericErr),
+            error_code => Err(VerificationError::unknown_err(error_code)), // 3, 4 => verification and input hash error
         }
     }
 
