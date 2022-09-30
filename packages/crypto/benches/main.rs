@@ -12,8 +12,8 @@ use k256::elliptic_curve::sec1::ToEncodedPoint;
 use sha2::Sha256;
 
 use cosmwasm_crypto::{
-    ed25519_batch_verify, ed25519_verify, groth16_verify, secp256k1_recover_pubkey,
-    secp256k1_verify, Keccak256, Poseidon,
+    curve_hash, ed25519_batch_verify, ed25519_verify, groth16_verify, secp256k1_recover_pubkey,
+    secp256k1_verify, Poseidon,
 };
 use std::cmp::min;
 
@@ -99,7 +99,7 @@ fn bench_crypto(c: &mut Criterion) {
         let message = hex::decode(COSMOS_SECP256K1_MSG_HEX).unwrap();
         let message_hash = Sha256::digest(&message);
         b.iter(|| {
-            assert!(Keccak256::hash(&message_hash).is_ok());
+            assert!(!curve_hash(&message_hash).is_empty());
         });
     });
 
@@ -107,9 +107,7 @@ fn bench_crypto(c: &mut Criterion) {
         let commitment_hash = hex::decode(COMMITMENT).unwrap();
         let poseidon = Poseidon::new();
         b.iter(|| {
-            assert!(poseidon
-                .hash(vec![&commitment_hash, &commitment_hash])
-                .is_ok());
+            assert!(poseidon.hash(&[&commitment_hash, &commitment_hash]).is_ok());
         });
     });
 

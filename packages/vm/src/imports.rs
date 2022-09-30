@@ -3,8 +3,8 @@
 use std::cmp::max;
 
 use cosmwasm_crypto::{
-    ed25519_batch_verify, ed25519_verify, groth16_verify, secp256k1_recover_pubkey,
-    secp256k1_verify, CryptoError, Keccak256, ZKError,
+    curve_hash, ed25519_batch_verify, ed25519_verify, groth16_verify, secp256k1_recover_pubkey,
+    secp256k1_verify, CryptoError, ZKError,
 };
 use cosmwasm_crypto::{
     ECDSA_PUBKEY_MAX_LEN, ECDSA_SIGNATURE_LEN, EDDSA_PUBKEY_LEN, GROTH16_PROOF_LEN,
@@ -275,7 +275,7 @@ pub fn do_poseidon_hash<A: BackendApi, S: Storage, Q: Querier>(
         (MESSAGE_HASH_MAX_LEN) * 4, // maximum 4 inputs
     )?;
     let inputs = decode_sections(&inputs);
-    let result = env.poseidon.hash(inputs);
+    let result = env.poseidon.hash(&inputs);
     let gas_info = GasInfo::with_cost(env.gas_config.poseidon_hash_cost);
 
     process_gas_info::<A, S, Q>(env, gas_info)?;
@@ -298,20 +298,13 @@ pub fn do_curve_hash<A: BackendApi, S: Storage, Q: Querier>(
 ) -> VmResult<u32> {
     // limit to 96 bytes
     let input = read_region(&env.memory(), input_ptr, MESSAGE_HASH_MAX_LEN * 3)?;
-    let result = Keccak256::hash(&input);
+    let hash = curve_hash(&input);
     let gas_info = GasInfo::with_cost(env.gas_config.curve_hash_cost);
 
     process_gas_info::<A, S, Q>(env, gas_info)?;
 
-    match result {
-        Ok(hash) => {
-            write_region(&env.memory(), hash_ptr, &hash)?;
-            Ok(0)
-        }
-        Err(_) => Err(VmError::GenericErr {
-            msg: "curve hash error".to_string(),
-        }),
-    }
+    write_region(&env.memory(), hash_ptr, &hash)?;
+    Ok(0)
 }
 
 pub fn do_secp256k1_recover_pubkey<A: BackendApi, S: Storage, Q: Querier>(

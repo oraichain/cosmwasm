@@ -183,17 +183,14 @@ impl Api for MockApi {
     }
 
     fn poseidon_hash(&self, inputs: &[&[u8]]) -> StdResult<Vec<u8>> {
-        match self.poseidon.hash(inputs.to_vec()) {
+        match self.poseidon.hash(inputs) {
             Ok(hash) => Ok(hash.to_vec()),
             Err(_) => return Err(StdError::generic_err("poseidon hash error")),
         }
     }
 
     fn curve_hash(&self, input: &[u8]) -> StdResult<Vec<u8>> {
-        match cosmwasm_crypto::Keccak256::hash(input) {
-            Ok(hash) => Ok(hash.to_vec()),
-            Err(_) => return Err(StdError::generic_err("curve hash error")),
-        }
+        Ok(cosmwasm_crypto::curve_hash(input))
     }
 
     fn groth16_verify(
