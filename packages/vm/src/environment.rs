@@ -50,8 +50,8 @@ impl Default for GasConfig {
             // ~154 us in crypto benchmarks
             secp256k1_verify_cost: 154 * GAS_PER_US,
 
-            // ~13000 us in crypto benchmarks
-            groth16_verify_cost: 13000 * GAS_PER_US,
+            // ~6920 us in crypto benchmarks
+            groth16_verify_cost: 6920 * GAS_PER_US,
 
             // ~43 us in crypto benchmarks
             poseidon_hash_cost: 43 * GAS_PER_US,
