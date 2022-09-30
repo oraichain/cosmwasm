@@ -114,8 +114,8 @@ pub trait Api {
     fn groth16_verify(
         &self,
         input: &[u8],
-        signature: &[u8],
-        public_key: &[u8],
+        proof: &[u8],
+        vk: &[u8],
     ) -> Result<bool, VerificationError>;
 
     fn poseidon_hash(&self, inputs: &[&[u8]]) -> StdResult<Vec<u8>>;
