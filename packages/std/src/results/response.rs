@@ -5,6 +5,22 @@ use crate::Binary;
 
 use super::{Attribute, CosmosMsg, Empty, Event, SubMsg};
 
+// add HandleResponse and InitResponse for old contract, MigrateResponse will always be latest code
+#[derive(Deserialize)]
+pub struct HandleResponse<T = Empty> {
+    pub messages: Vec<CosmosMsg<T>>,
+    /// The attributes that will be emitted as part of a "wasm" event
+    pub attributes: Vec<Attribute>,
+    pub data: Option<Binary>,
+}
+
+#[derive(Deserialize)]
+pub struct InitResponse<T = Empty> {
+    pub messages: Vec<CosmosMsg<T>>,
+    /// The attributes that will be emitted as part of a "wasm" event
+    pub attributes: Vec<Attribute>,
+}
+
 /// A response of a contract entry point, such as `instantiate`, `execute` or `migrate`.
 ///
 /// This type can be constructed directly at the end of the call. Alternatively a

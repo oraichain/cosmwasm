@@ -1,7 +1,10 @@
 use serde::de::DeserializeOwned;
 use wasmer::Val;
 
-use cosmwasm_std::{ContractResult, CustomMsg, Env, MessageInfo, QueryResponse, Reply, Response};
+use cosmwasm_std::{
+    ContractResult, CustomMsg, Env, HandleResponse, InitResponse, MessageInfo, QueryResponse,
+    Reply, Response, SubMsg,
+};
 #[cfg(feature = "stargate")]
 use cosmwasm_std::{
     Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
@@ -369,12 +372,39 @@ where
     if instance.is_old_instance() {
         // this can be called from vm go
 
-        return call_raw(
+        let old_data = call_raw(
             instance,
             "init",
             &[&get_old_env(env)?, &get_old_info(info), msg],
             read_limits::RESULT_INSTANTIATE,
-        );
+        )?;
+
+        unsafe {
+            // fix "send" => "funds"
+            let data = String::from_utf8_unchecked(old_data)
+                .replace("\"send\"", "\"funds\"")
+                .into_bytes();
+            let instantiate_res: ContractResult<InitResponse> =
+                from_slice(&data, deserialization_limits::RESULT_INSTANTIATE)?;
+
+            let old_res = match instantiate_res {
+                ContractResult::Ok(value) => value,
+                ContractResult::Err(err) => return Err(VmError::generic_err(err)),
+            };
+
+            let messages: Vec<SubMsg> = old_res
+                .messages
+                .into_iter()
+                .map(|msg| SubMsg::new(msg))
+                .collect();
+
+            return Ok(format!(
+                r#"{{"ok":{{"messages":{},"attributes":{},"events":[]}}}}"#,
+                String::from_utf8_unchecked(to_vec(&messages)?),
+                String::from_utf8_unchecked(to_vec(&old_res.attributes)?),
+            )
+            .into_bytes());
+        }
     }
     call_raw(
         instance,
@@ -401,12 +431,50 @@ where
 
     if instance.is_old_instance() {
         // this can be called from vm go
-        return call_raw(
+        let old_data = call_raw(
             instance,
             "handle",
             &[&get_old_env(env)?, &get_old_info(info), msg],
             read_limits::RESULT_EXECUTE,
-        );
+        )?;
+
+        unsafe {
+            // fix "send" => "funds"
+            let data = String::from_utf8_unchecked(old_data)
+                .replace("\"send\"", "\"funds\"")
+                .into_bytes();
+
+            let execute_res: ContractResult<HandleResponse> =
+                from_slice(&data, deserialization_limits::RESULT_EXECUTE)?;
+
+            let old_res = match execute_res {
+                ContractResult::Ok(value) => value,
+                ContractResult::Err(err) => return Err(VmError::generic_err(err)),
+            };
+
+            let messages: Vec<SubMsg> = old_res
+                .messages
+                .into_iter()
+                .map(|msg| SubMsg::new(msg))
+                .collect();
+
+            // execute has Option<Binary> data field
+            let mut data_str = String::new();
+            if let Some(data_buf) = old_res.data {
+                data_str.push_str(",\"data\":\"");
+                data_str.push_str(&data_buf.to_base64());
+                data_str.push_str("\"");
+            }
+
+            let res = format!(
+                r#"{{"ok":{{"messages":{},"attributes":{},"events":[]{}}}}}"#,
+                String::from_utf8_unchecked(to_vec(&messages)?),
+                String::from_utf8_unchecked(to_vec(&old_res.attributes)?),
+                data_str
+            );
+
+            return Ok(res.into_bytes());
+        }
     }
 
     call_raw(
@@ -430,16 +498,6 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
-
-    if instance.is_old_instance() {
-        return call_raw(
-            instance,
-            "migrate",
-            &[&get_old_env(env)?, msg],
-            read_limits::RESULT_MIGRATE,
-        );
-    };
-
     call_raw(
         instance,
         "migrate",
@@ -461,16 +519,6 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
-
-    if instance.is_old_instance() {
-        return call_raw(
-            instance,
-            "sudo",
-            &[&get_old_env(env)?, msg],
-            read_limits::RESULT_SUDO,
-        );
-    };
-
     call_raw(instance, "sudo", &[env, msg], read_limits::RESULT_SUDO)
 }
 
@@ -487,16 +535,6 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
-
-    if instance.is_old_instance() {
-        return call_raw(
-            instance,
-            "reply",
-            &[&get_old_env(env)?, msg],
-            read_limits::RESULT_REPLY,
-        );
-    };
-
     call_raw(instance, "reply", &[env, msg], read_limits::RESULT_REPLY)
 }
 
@@ -538,16 +576,6 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
-
-    if instance.is_old_instance() {
-        return call_raw(
-            instance,
-            "ibc_channel_open",
-            &[&get_old_env(env)?, msg],
-            read_limits::RESULT_IBC_CHANNEL_OPEN,
-        );
-    };
-
     call_raw(
         instance,
         "ibc_channel_open",
@@ -568,16 +596,6 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
-
-    if instance.is_old_instance() {
-        return call_raw(
-            instance,
-            "ibc_channel_connect",
-            &[&get_old_env(env)?, msg],
-            read_limits::RESULT_IBC_CHANNEL_CONNECT,
-        );
-    };
-
     call_raw(
         instance,
         "ibc_channel_connect",
@@ -598,16 +616,6 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
-
-    if instance.is_old_instance() {
-        return call_raw(
-            instance,
-            "ibc_channel_close",
-            &[&get_old_env(env)?, msg],
-            read_limits::RESULT_IBC_CHANNEL_CLOSE,
-        );
-    };
-
     call_raw(
         instance,
         "ibc_channel_close",
@@ -628,16 +636,6 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
-
-    if instance.is_old_instance() {
-        return call_raw(
-            instance,
-            "ibc_packet_receive",
-            &[&get_old_env(env)?, msg],
-            read_limits::RESULT_IBC_PACKET_RECEIVE,
-        );
-    };
-
     call_raw(
         instance,
         "ibc_packet_receive",
@@ -658,16 +656,6 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
-
-    if instance.is_old_instance() {
-        return call_raw(
-            instance,
-            "ibc_packet_ack",
-            &[&get_old_env(env)?, msg],
-            read_limits::RESULT_IBC_PACKET_ACK,
-        );
-    };
-
     call_raw(
         instance,
         "ibc_packet_ack",
@@ -688,16 +676,6 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
-
-    if instance.is_old_instance() {
-        return call_raw(
-            instance,
-            "ibc_packet_timeout",
-            &[&get_old_env(env)?, msg],
-            read_limits::RESULT_IBC_PACKET_TIMEOUT,
-        );
-    };
-
     call_raw(
         instance,
         "ibc_packet_timeout",

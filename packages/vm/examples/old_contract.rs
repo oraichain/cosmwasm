@@ -2,11 +2,10 @@ use std::collections::HashSet;
 use tempfile::TempDir;
 
 use clap::{App, Arg};
-use cosmwasm_std::{coins, from_slice, to_vec, ContractResult, QueryResponse};
+use cosmwasm_std::{coins, Empty};
 use cosmwasm_vm::testing::{mock_backend, mock_env, mock_info, MockApi};
 use cosmwasm_vm::{
-    call_execute_raw, call_instantiate_raw, call_query_raw, Cache, CacheOptions, InstanceOptions,
-    Size,
+    call_execute, call_instantiate, call_query, Cache, CacheOptions, InstanceOptions, Size,
 };
 use std::fs::File;
 use std::io::prelude::*;
@@ -42,31 +41,28 @@ pub fn run_contract(src: &str) {
         .get_instance(&checksum, backend, DEFAULT_INSTANCE_OPTIONS)
         .unwrap();
 
+    let env = mock_env();
+    let info = mock_info("creator", &coins(15, "earth"));
+
     let msg = br#"{"name": "name", "version": "version", "symbol": "symbol","minter":"creator"}"#;
-    let env = to_vec(&mock_env()).unwrap();
-    let info = to_vec(&mock_info("creator", &coins(1000, "earth"))).unwrap();
-    let contract_result = call_instantiate_raw(&mut instance, &env, &info, msg).unwrap();
-    println!(
-        "Done instantiating contract: {}",
-        String::from_utf8(contract_result).unwrap()
-    );
+    let contract_result =
+        call_instantiate::<_, _, _, Empty>(&mut instance, &env, &info, msg).unwrap();
+    println!("Done instantiating contract: {:?}", contract_result);
 
-    let env = to_vec(&mock_env()).unwrap();
-    let info = to_vec(&mock_info("creator", &coins(15, "earth"))).unwrap();
     let msg = br#"{"mint":{"token_id": "token_id", "owner": "owner", "name": "name", "description": "description", "image": "image"}}"#;
-    let contract_result = call_execute_raw(&mut instance, &env, &info, msg).unwrap();
-    println!(
-        "Done excuting contract: {}",
-        String::from_utf8(contract_result).unwrap()
-    );
+    let contract_result = call_execute::<_, _, _, Empty>(&mut instance, &env, &info, msg).unwrap();
+    println!("Done excuting contract: {:?}", contract_result);
 
-    let env = to_vec(&mock_env()).unwrap();
+    let msg = br#"{"send_nft":{"contract": "contract", "token_id": "token_id"}}"#;
+    let contract_result = call_execute::<_, _, _, Empty>(&mut instance, &env, &info, msg).unwrap();
+    println!("Done excuting contract with sub msg: {:?}", contract_result);
+
     let msg = br#"{"all_tokens":{}}"#;
-    let data = call_query_raw(&mut instance, &env, msg).unwrap();
-    let contract_result: ContractResult<QueryResponse> = from_slice(&data).unwrap();
+    let contract_result = call_query::<_, _, _>(&mut instance, &env, msg).unwrap();
+
     println!(
         "Done querying contract: {}",
-        String::from_utf8(contract_result.unwrap().to_vec()).unwrap()
+        String::from_utf8(contract_result.into_result().unwrap().to_vec()).unwrap()
     );
 }
 
