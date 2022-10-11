@@ -1,10 +1,8 @@
 use serde::de::DeserializeOwned;
+use serde_json::json;
 use wasmer::Val;
 
-use cosmwasm_std::{
-    ContractResult, CustomMsg, Env, HandleResponse, InitResponse, MessageInfo, QueryResponse,
-    Reply, Response, SubMsg,
-};
+use cosmwasm_std::{ContractResult, CustomMsg, Env, MessageInfo, QueryResponse, Reply, Response};
 #[cfg(feature = "stargate")]
 use cosmwasm_std::{
     Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
@@ -99,26 +97,68 @@ mod deserialization_limits {
 }
 
 fn get_old_env(env: &[u8]) -> VmResult<Vec<u8>> {
-    //deserialize back env
-    let env_struct: Env = from_slice(env, env.len())?;
+    let mut env_msg: serde_json::Value =
+        serde_json::from_slice(env).map_err(|e| VmError::generic_err(e.to_string()))?;
+    let block_msg = env_msg.get_mut("block").unwrap();
+    let nanos: u64 = block_msg["time"].as_str().unwrap().parse().unwrap();
+    block_msg["time"] = (nanos / 1_000_000_000).into();
+    block_msg["time_nanos"] = nanos.into();
 
-    Ok(format!(
-        r#"{{"block":{{"height":{},"time":{},"time_nanos":{},"chain_id":"{}"}},"contract":{{"address":"{}"}}}}"#,
-        env_struct.block.height,
-        env_struct.block.time.nanos() / 1_000_000_000,
-        env_struct.block.time.nanos(),
-        env_struct.block.chain_id,
-        env_struct.contract.address
-    ).into_bytes())
+    Ok(env_msg.to_string().into_bytes())
 }
 
 fn get_old_info(info: &[u8]) -> Vec<u8> {
     // just replace the first funds key is ok
     unsafe {
         String::from_utf8_unchecked(info.to_vec())
-            .replacen("funds", "sent_funds", 1)
+            .replacen("\"funds\"", "\"sent_funds\"", 1)
             .into_bytes()
     }
+}
+
+fn get_new_response(response: &[u8]) -> VmResult<Vec<u8>> {
+    let mut contract_result: serde_json::Value =
+        serde_json::from_slice(response).map_err(|e| VmError::generic_err(e.to_string()))?;
+    if let Some(ok_msg) = contract_result.get_mut("ok") {
+        // add events
+        ok_msg["events"] = serde_json::Value::Array(vec![]);
+
+        // modify messages
+        if let Some(messages) = ok_msg["messages"].as_array_mut() {
+            if !messages.is_empty() {
+                let new_messages: Vec<serde_json::Value> = messages
+                    .iter_mut()
+                    .map(|message| {
+                        if let Some(wasm_msg) = message["wasm"].as_object_mut() {
+                            let wasm_detail_msg = wasm_msg
+                                .values_mut()
+                                .next()
+                                .unwrap()
+                                .as_object_mut()
+                                .unwrap();
+
+                            // if first item has send key then replace it
+                            if wasm_detail_msg.contains_key("send") {
+                                wasm_detail_msg
+                                    .insert("funds".to_string(), wasm_detail_msg["send"].clone());
+                                wasm_detail_msg.remove("send");
+                            }
+                        }
+                        // return new value
+                        json!({
+                            "events": [],
+                            "msg": message,
+                            "id": 0,
+                            "reply_on":"never"
+                        })
+                    })
+                    .collect();
+                ok_msg["messages"] = serde_json::Value::Array(new_messages);
+            }
+        }
+    }
+
+    Ok(contract_result.to_string().into_bytes())
 }
 
 pub fn call_instantiate<A, S, Q, U>(
@@ -379,32 +419,7 @@ where
             read_limits::RESULT_INSTANTIATE,
         )?;
 
-        unsafe {
-            // fix "send" => "funds"
-            let data = String::from_utf8_unchecked(old_data)
-                .replace("\"send\"", "\"funds\"")
-                .into_bytes();
-            let instantiate_res: ContractResult<InitResponse> =
-                from_slice(&data, deserialization_limits::RESULT_INSTANTIATE)?;
-
-            let old_res = match instantiate_res {
-                ContractResult::Ok(value) => value,
-                ContractResult::Err(err) => return Err(VmError::generic_err(err)),
-            };
-
-            let messages: Vec<SubMsg> = old_res
-                .messages
-                .into_iter()
-                .map(|msg| SubMsg::new(msg))
-                .collect();
-
-            return Ok(format!(
-                r#"{{"ok":{{"messages":{},"attributes":{},"events":[]}}}}"#,
-                String::from_utf8_unchecked(to_vec(&messages)?),
-                String::from_utf8_unchecked(to_vec(&old_res.attributes)?),
-            )
-            .into_bytes());
-        }
+        return get_new_response(&old_data);
     }
     call_raw(
         instance,
@@ -438,43 +453,7 @@ where
             read_limits::RESULT_EXECUTE,
         )?;
 
-        unsafe {
-            // fix "send" => "funds"
-            let data = String::from_utf8_unchecked(old_data)
-                .replace("\"send\"", "\"funds\"")
-                .into_bytes();
-
-            let execute_res: ContractResult<HandleResponse> =
-                from_slice(&data, deserialization_limits::RESULT_EXECUTE)?;
-
-            let old_res = match execute_res {
-                ContractResult::Ok(value) => value,
-                ContractResult::Err(err) => return Err(VmError::generic_err(err)),
-            };
-
-            let messages: Vec<SubMsg> = old_res
-                .messages
-                .into_iter()
-                .map(|msg| SubMsg::new(msg))
-                .collect();
-
-            // execute has Option<Binary> data field
-            let mut data_str = String::new();
-            if let Some(data_buf) = old_res.data {
-                data_str.push_str(",\"data\":\"");
-                data_str.push_str(&data_buf.to_base64());
-                data_str.push_str("\"");
-            }
-
-            let res = format!(
-                r#"{{"ok":{{"messages":{},"attributes":{},"events":[]{}}}}}"#,
-                String::from_utf8_unchecked(to_vec(&messages)?),
-                String::from_utf8_unchecked(to_vec(&old_res.attributes)?),
-                data_str
-            );
-
-            return Ok(res.into_bytes());
-        }
+        return get_new_response(&old_data);
     }
 
     call_raw(

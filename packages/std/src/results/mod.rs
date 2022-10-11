@@ -18,7 +18,7 @@ pub use cosmos_msg::{GovMsg, VoteOption};
 pub use empty::Empty;
 pub use events::{attr, Attribute, Event};
 pub use query::QueryResponse;
-pub use response::{HandleResponse, InitResponse, Response};
+pub use response::Response;
 #[allow(deprecated)]
 pub use submessages::SubMsgExecutionResponse;
 pub use submessages::{Reply, ReplyOn, SubMsg, SubMsgResponse, SubMsgResult};
