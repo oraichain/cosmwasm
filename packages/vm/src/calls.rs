@@ -145,9 +145,9 @@ fn get_new_response(response: Vec<u8>) -> Vec<u8> {
                                 wasm_detail_msg.remove("send");
                             }
                         }
+
                         // return new value
                         json!({
-                            "events": [],
                             "msg": message,
                             "id": 0,
                             "reply_on":"never"
