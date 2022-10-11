@@ -96,15 +96,16 @@ mod deserialization_limits {
     pub const RESULT_IBC_PACKET_TIMEOUT: usize = 256 * KI;
 }
 
-fn get_old_env(env: &[u8]) -> VmResult<Vec<u8>> {
-    let mut env_msg: serde_json::Value =
-        serde_json::from_slice(env).map_err(|e| VmError::generic_err(e.to_string()))?;
-    let block_msg = env_msg.get_mut("block").unwrap();
-    let nanos: u64 = block_msg["time"].as_str().unwrap().parse().unwrap();
-    block_msg["time"] = (nanos / 1_000_000_000).into();
-    block_msg["time_nanos"] = nanos.into();
+fn get_old_env(env: &[u8]) -> Vec<u8> {
+    let mut env_msg: serde_json::Value = serde_json::from_slice(env).unwrap_or_default();
+    if let Some(block_msg) = env_msg.get_mut("block") {
+        let nanos: u64 = block_msg["time"].as_str().unwrap().parse().unwrap();
+        block_msg["time"] = (nanos / 1_000_000_000).into();
+        block_msg["time_nanos"] = nanos.into();
 
-    Ok(env_msg.to_string().into_bytes())
+        return env_msg.to_string().into_bytes();
+    }
+    env.to_vec()
 }
 
 fn get_old_info(info: &[u8]) -> Vec<u8> {
@@ -116,9 +117,9 @@ fn get_old_info(info: &[u8]) -> Vec<u8> {
     }
 }
 
-fn get_new_response(response: &[u8]) -> VmResult<Vec<u8>> {
+fn get_new_response(response: Vec<u8>) -> Vec<u8> {
     let mut contract_result: serde_json::Value =
-        serde_json::from_slice(response).map_err(|e| VmError::generic_err(e.to_string()))?;
+        serde_json::from_slice(&response).unwrap_or_default();
     if let Some(ok_msg) = contract_result.get_mut("ok") {
         // add events
         ok_msg["events"] = serde_json::Value::Array(vec![]);
@@ -156,9 +157,11 @@ fn get_new_response(response: &[u8]) -> VmResult<Vec<u8>> {
                 ok_msg["messages"] = serde_json::Value::Array(new_messages);
             }
         }
+        return contract_result.to_string().into_bytes();
     }
 
-    Ok(contract_result.to_string().into_bytes())
+    // if error happend, just return ContractError bytes
+    response
 }
 
 pub fn call_instantiate<A, S, Q, U>(
@@ -411,15 +414,13 @@ where
 
     if instance.is_old_instance() {
         // this can be called from vm go
-
-        let old_data = call_raw(
+        return call_raw(
             instance,
             "init",
-            &[&get_old_env(env)?, &get_old_info(info), msg],
+            &[&get_old_env(env), &get_old_info(info), msg],
             read_limits::RESULT_INSTANTIATE,
-        )?;
-
-        return get_new_response(&old_data);
+        )
+        .map(get_new_response);
     }
     call_raw(
         instance,
@@ -446,14 +447,13 @@ where
 
     if instance.is_old_instance() {
         // this can be called from vm go
-        let old_data = call_raw(
+        return call_raw(
             instance,
             "handle",
-            &[&get_old_env(env)?, &get_old_info(info), msg],
+            &[&get_old_env(env), &get_old_info(info), msg],
             read_limits::RESULT_EXECUTE,
-        )?;
-
-        return get_new_response(&old_data);
+        )
+        .map(get_new_response);
     }
 
     call_raw(
@@ -535,7 +535,7 @@ where
         return call_raw(
             instance,
             "query",
-            &[&get_old_env(env)?, msg],
+            &[&get_old_env(env), msg],
             read_limits::RESULT_QUERY,
         );
     };
