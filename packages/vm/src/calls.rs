@@ -1,8 +1,11 @@
 use serde::de::DeserializeOwned;
-use serde_json::json;
+use serde::{Deserialize, Serialize};
 use wasmer::Val;
 
-use cosmwasm_std::{ContractResult, CustomMsg, Env, MessageInfo, QueryResponse, Reply, Response};
+use cosmwasm_std::{
+    Attribute, BankMsg, Binary, Coin, ContractInfo, ContractResult, CosmosMsg, CustomMsg, Env,
+    MessageInfo, QueryResponse, Reply, Response, StakingMsg, WasmMsg,
+};
 #[cfg(feature = "stargate")]
 use cosmwasm_std::{
     Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
@@ -96,16 +99,66 @@ mod deserialization_limits {
     pub const RESULT_IBC_PACKET_TIMEOUT: usize = 256 * KI;
 }
 
-fn get_old_env(env: &[u8]) -> Vec<u8> {
-    let mut env_msg: serde_json::Value = serde_json::from_slice(env).unwrap_or_default();
-    if let Some(block_msg) = env_msg.get_mut("block") {
-        let nanos: u64 = block_msg["time"].as_str().unwrap().parse().unwrap();
-        block_msg["time"] = (nanos / 1_000_000_000).into();
-        block_msg["time_nanos"] = nanos.into();
+#[derive(Serialize)]
+pub struct OldBlockInfo {
+    pub height: u64,
+    pub time: u64,
+    pub time_nanos: u64,
+    pub chain_id: String,
+}
 
-        return env_msg.to_string().into_bytes();
-    }
-    env.to_vec()
+#[derive(Serialize)]
+pub struct OldEnv {
+    pub block: OldBlockInfo,
+    pub contract: ContractInfo,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OldWasmMsg {
+    Execute {
+        contract_addr: String,
+        msg: Binary,
+        send: Vec<Coin>,
+    },
+    Instantiate {
+        code_id: u64,
+        msg: Binary,
+        send: Vec<Coin>,
+        label: Option<String>,
+    },
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OldCosmosMsg {
+    Bank(BankMsg),
+    Staking(StakingMsg),
+    Wasm(OldWasmMsg),
+}
+
+#[derive(Deserialize)]
+pub struct OldResponse {
+    pub messages: Vec<OldCosmosMsg>,
+    /// The attributes that will be emitted as part of a "wasm" event
+    pub attributes: Vec<Attribute>,
+    pub data: Option<Binary>,
+}
+
+fn get_old_env(env: &[u8]) -> Vec<u8> {
+    let env_struct: Env = serde_json::from_slice(env).unwrap();
+
+    let old_env = OldEnv {
+        block: OldBlockInfo {
+            height: env_struct.block.height,
+            time_nanos: env_struct.block.time.nanos(),
+            time: env_struct.block.time.seconds(),
+            chain_id: env_struct.block.chain_id,
+        },
+        contract: env_struct.contract,
+    };
+
+    serde_json::to_vec(&old_env).unwrap()
 }
 
 fn get_old_info(info: &[u8]) -> Vec<u8> {
@@ -118,49 +171,49 @@ fn get_old_info(info: &[u8]) -> Vec<u8> {
 }
 
 fn get_new_response(response: Vec<u8>) -> Vec<u8> {
-    let mut contract_result: serde_json::Value =
-        serde_json::from_slice(&response).unwrap_or_default();
-    if let Some(ok_msg) = contract_result.get_mut("ok") {
-        // add events
-        ok_msg["events"] = serde_json::Value::Array(vec![]);
-
-        // modify messages
-        if let Some(messages) = ok_msg["messages"].as_array_mut() {
-            if !messages.is_empty() {
-                let new_messages: Vec<serde_json::Value> = messages
-                    .iter_mut()
-                    .map(|message| {
-                        if let Some(wasm_msg) = message["wasm"].as_object_mut() {
-                            let wasm_detail_msg = wasm_msg
-                                .values_mut()
-                                .next()
-                                .unwrap()
-                                .as_object_mut()
-                                .unwrap();
-
-                            // if first item has send key then replace it
-                            if wasm_detail_msg.contains_key("send") {
-                                wasm_detail_msg
-                                    .insert("funds".to_string(), wasm_detail_msg["send"].clone());
-                                wasm_detail_msg.remove("send");
-                            }
-                        }
-
-                        // return new value
-                        json!({
-                            "msg": message,
-                            "id": 0,
-                            "reply_on":"never"
-                        })
+    // convert response when success
+    if let ContractResult::Ok(old_response) =
+        serde_json::from_slice::<ContractResult<OldResponse>>(&response).unwrap()
+    {
+        let new_response: Response = Response::new()
+            .add_attributes(old_response.attributes)
+            .add_messages(
+                old_response
+                    .messages
+                    .into_iter()
+                    .map(|message| match message {
+                        OldCosmosMsg::Wasm(OldWasmMsg::Instantiate {
+                            code_id,
+                            msg,
+                            send,
+                            label,
+                        }) => CosmosMsg::Wasm(WasmMsg::Instantiate {
+                            admin: None,
+                            code_id,
+                            msg,
+                            funds: send,
+                            label: label.unwrap_or_default(),
+                        }),
+                        OldCosmosMsg::Wasm(OldWasmMsg::Execute {
+                            contract_addr,
+                            msg,
+                            send,
+                        }) => CosmosMsg::Wasm(WasmMsg::Execute {
+                            contract_addr,
+                            msg,
+                            funds: send,
+                        }),
+                        OldCosmosMsg::Bank(msg) => CosmosMsg::Bank(msg),
+                        OldCosmosMsg::Staking(msg) => CosmosMsg::Staking(msg),
                     })
-                    .collect();
-                ok_msg["messages"] = serde_json::Value::Array(new_messages);
-            }
-        }
-        return contract_result.to_string().into_bytes();
+                    .collect::<Vec<CosmosMsg>>(),
+            )
+            .set_data(old_response.data.unwrap_or_default());
+
+        return serde_json::to_vec(&ContractResult::Ok(new_response)).unwrap();
     }
 
-    // if error happend, just return ContractError bytes
+    // return same error
     response
 }
 
