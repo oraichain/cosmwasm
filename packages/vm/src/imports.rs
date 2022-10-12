@@ -252,9 +252,10 @@ pub fn do_groth16_verify<A: BackendApi, S: Storage, Q: Querier>(
     let proof = read_region(&env.memory(), proof_ptr, GROTH16_PROOF_LEN)?;
     let vk = read_region(&env.memory(), vk_ptr, GROTH16_VERIFIER_KEY_LEN)?;
 
-    let result = groth16_verify(&input, &proof, &vk);
     let gas_info = GasInfo::with_cost(env.gas_config.groth16_verify_cost);
     process_gas_info::<A, S, Q>(env, gas_info)?;
+    let result = groth16_verify(&input, &proof, &vk);
+
     Ok(result.map_or_else(
         |err| match err {
             ZKError::VerifierError {}
@@ -276,11 +277,10 @@ pub fn do_poseidon_hash<A: BackendApi, S: Storage, Q: Querier>(
         inputs_ptr,
         (MESSAGE_HASH_MAX_LEN) * 4, // maximum 4 inputs
     )?;
-    let inputs = decode_sections(&inputs);
-    let result = env.poseidon.hash(&inputs);
-    let gas_info = GasInfo::with_cost(env.gas_config.poseidon_hash_cost);
 
+    let gas_info = GasInfo::with_cost(env.gas_config.poseidon_hash_cost);
     process_gas_info::<A, S, Q>(env, gas_info)?;
+    let result = env.poseidon.hash(&decode_sections(&inputs));
 
     match result {
         Ok(hash) => {
@@ -300,10 +300,10 @@ pub fn do_curve_hash<A: BackendApi, S: Storage, Q: Querier>(
 ) -> VmResult<u32> {
     // limit to 96 bytes
     let input = read_region(&env.memory(), input_ptr, MESSAGE_HASH_MAX_LEN * 3)?;
-    let hash = curve_hash(&input);
-    let gas_info = GasInfo::with_cost(env.gas_config.curve_hash_cost);
 
+    let gas_info = GasInfo::with_cost(env.gas_config.curve_hash_cost);
     process_gas_info::<A, S, Q>(env, gas_info)?;
+    let hash = curve_hash(&input);
 
     write_region(&env.memory(), hash_ptr, &hash)?;
     Ok(0)
