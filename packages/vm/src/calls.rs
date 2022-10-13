@@ -161,9 +161,16 @@ fn get_new_response(response: Vec<u8>) -> Vec<u8> {
     if let ContractResult::Ok(old_response) =
         serde_json::from_slice::<ContractResult<OldResponse>>(&response).unwrap()
     {
-        let mut new_response = Response::new()
-            .add_attributes(old_response.attributes)
-            .add_messages(
+        // because Response can only modify using chain, it will return new move on each operation
+        // so we should check condition for each operation
+        let mut new_response = Response::new();
+
+        if !old_response.attributes.is_empty() {
+            new_response = new_response.add_attributes(old_response.attributes)
+        }
+
+        if !old_response.messages.is_empty() {
+            new_response = new_response.add_messages(
                 old_response
                     .messages
                     .into_iter()
@@ -194,6 +201,7 @@ fn get_new_response(response: Vec<u8>) -> Vec<u8> {
                     })
                     .collect::<Vec<CosmosMsg>>(),
             );
+        }
 
         // update custom data
         if let Some(data) = old_response.data {
