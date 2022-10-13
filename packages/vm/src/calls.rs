@@ -161,7 +161,7 @@ fn get_new_response(response: Vec<u8>) -> Vec<u8> {
     if let ContractResult::Ok(old_response) =
         serde_json::from_slice::<ContractResult<OldResponse>>(&response).unwrap()
     {
-        let new_response: Response = Response::new()
+        let mut new_response = Response::new()
             .add_attributes(old_response.attributes)
             .add_messages(
                 old_response
@@ -193,8 +193,12 @@ fn get_new_response(response: Vec<u8>) -> Vec<u8> {
                         OldCosmosMsg::Staking(msg) => CosmosMsg::Staking(msg),
                     })
                     .collect::<Vec<CosmosMsg>>(),
-            )
-            .set_data(old_response.data.unwrap_or_default());
+            );
+
+        // update custom data
+        if let Some(data) = old_response.data {
+            new_response = new_response.set_data(data);
+        }
 
         return serde_json::to_vec(&ContractResult::Ok(new_response)).unwrap();
     }
