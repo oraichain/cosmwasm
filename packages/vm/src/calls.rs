@@ -1,10 +1,10 @@
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use wasmer::Val;
 
 use cosmwasm_std::{
-    Attribute, BankMsg, Binary, Coin, ContractInfo, ContractResult, CosmosMsg, CustomMsg, Env,
-    MessageInfo, QueryResponse, Reply, Response, StakingMsg, WasmMsg,
+    Attribute, BankMsg, Binary, Coin, ContractResult, CosmosMsg, CustomMsg, Env, MessageInfo,
+    QueryResponse, Reply, Response, StakingMsg, WasmMsg,
 };
 #[cfg(feature = "stargate")]
 use cosmwasm_std::{
@@ -99,20 +99,6 @@ mod deserialization_limits {
     pub const RESULT_IBC_PACKET_TIMEOUT: usize = 256 * KI;
 }
 
-#[derive(Serialize)]
-pub struct OldBlockInfo {
-    pub height: u64,
-    pub time: u64,
-    pub time_nanos: u64,
-    pub chain_id: String,
-}
-
-#[derive(Serialize)]
-pub struct OldEnv {
-    pub block: OldBlockInfo,
-    pub contract: ContractInfo,
-}
-
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OldWasmMsg {
@@ -146,19 +132,19 @@ pub struct OldResponse {
 }
 
 fn get_old_env(env: &[u8]) -> Vec<u8> {
-    let env_struct: Env = serde_json::from_slice(env).unwrap();
+    let Env {
+        block, contract, ..
+    } = serde_json::from_slice(env).unwrap();
 
-    let old_env = OldEnv {
-        block: OldBlockInfo {
-            height: env_struct.block.height,
-            time_nanos: env_struct.block.time.nanos(),
-            time: env_struct.block.time.seconds(),
-            chain_id: env_struct.block.chain_id,
-        },
-        contract: env_struct.contract,
-    };
-
-    serde_json::to_vec(&old_env).unwrap()
+    // just format the correct json is ok
+    format!(
+        r#"{{"block":{{"height":{},"time":{},"time_nanos":{},"chain_id":"{}"}},"contract":{{"address":"{}"}}}}"#,
+        block.height,
+        block.time.nanos() / 1_000_000_000,
+        block.time.nanos(),
+        block.chain_id,
+        contract.address
+    ).into_bytes()
 }
 
 fn get_old_info(info: &[u8]) -> Vec<u8> {
