@@ -84,8 +84,9 @@ where
         instantiation_lock: Option<&Mutex<()>>,
     ) -> VmResult<Self> {
         let store = module.store();
+        let interface_version = crate::compatibility::get_interface_version(module)?;
 
-        let env = Environment::new(backend.api, gas_limit, print_debug);
+        let env = Environment::new(backend.api, gas_limit, print_debug, interface_version);
 
         let mut import_obj = ImportObject::new();
         let mut env_imports = Exports::new();
@@ -394,8 +395,8 @@ where
     }
 
     /// Get the interface version to support multiple cosmwasm
-    pub(crate) fn get_interface_version(&self) -> VmResult<u8> {
-        self.env.get_interface_version()
+    pub(crate) fn get_interface_version(&self) -> u8 {
+        self.env.interface_version
     }
 }
 

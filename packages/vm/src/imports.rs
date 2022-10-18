@@ -505,7 +505,7 @@ pub fn do_db_next<A: BackendApi, S: Storage, Q: Querier>(
     // Empty key will later be treated as _no more element_.
     let (key, value) = result?.unwrap_or_else(|| (Vec::<u8>::new(), Vec::<u8>::new()));
 
-    let out_data = if env.get_interface_version()? == 4 {
+    let out_data = if env.interface_version == 4 {
         let keylen_bytes = to_u32(key.len())?.to_be_bytes();
         let mut out_data = value;
         out_data.reserve(key.len() + 4);
@@ -587,7 +587,7 @@ mod tests {
         Box<WasmerInstance>,
     ) {
         let gas_limit = TESTING_GAS_LIMIT;
-        let env = Environment::new(api, gas_limit, false);
+        let env = Environment::new(api, gas_limit, false, 8);
 
         let module = compile(CONTRACT, TESTING_MEMORY_LIMIT, &[]).unwrap();
         let store = module.store();

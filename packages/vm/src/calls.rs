@@ -470,7 +470,7 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
-    let version = instance.get_interface_version()?;
+    let version = instance.get_interface_version();
 
     // version 4 has old env and info struct
     let response = if version == 4 {
@@ -512,7 +512,7 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
-    let version = instance.get_interface_version()?;
+    let version = instance.get_interface_version();
 
     // version 4 has old env and info struct
     let response = if version == 4 {
@@ -606,7 +606,7 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(true);
-    let version = instance.get_interface_version()?;
+    let version = instance.get_interface_version();
 
     // version 4 has old env and info struct
     if version == 4 {

@@ -96,7 +96,10 @@ pub struct Environment<A: BackendApi, S: Storage, Q: Querier> {
     pub api: A,
     pub print_debug: bool,
     pub gas_config: GasConfig,
+    // use this to store Poseidon instance
     pub poseidon: Poseidon,
+    // caching interface version for later check
+    pub interface_version: u8,
     data: Arc<RwLock<ContextData<S, Q>>>,
 }
 
@@ -111,6 +114,7 @@ impl<A: BackendApi, S: Storage, Q: Querier> Clone for Environment<A, S, Q> {
             print_debug: self.print_debug,
             gas_config: self.gas_config.clone(),
             poseidon: self.poseidon.clone(),
+            interface_version: self.interface_version,
             data: self.data.clone(),
         }
     }
@@ -123,12 +127,13 @@ impl<A: BackendApi, S: Storage, Q: Querier> WasmerEnv for Environment<A, S, Q> {
 }
 
 impl<A: BackendApi, S: Storage, Q: Querier> Environment<A, S, Q> {
-    pub fn new(api: A, gas_limit: u64, print_debug: bool) -> Self {
+    pub fn new(api: A, gas_limit: u64, print_debug: bool, interface_version: u8) -> Self {
         Environment {
             api,
             print_debug,
             gas_config: GasConfig::default(),
             poseidon: Poseidon::new(),
+            interface_version,
             data: Arc::new(RwLock::new(ContextData::new(gas_limit))),
         }
     }
@@ -218,12 +223,6 @@ impl<A: BackendApi, S: Storage, Q: Querier> Environment<A, S, Q> {
             return Err(VmError::result_mismatch(name, expected, actual));
         }
         Ok(result[0].clone())
-    }
-
-    pub fn get_interface_version(&self) -> VmResult<u8> {
-        self.with_wasmer_instance(|instance| {
-            crate::compatibility::get_interface_version(instance.module())
-        })
     }
 
     pub fn with_storage_from_context<C, T>(&self, callback: C) -> VmResult<T>
@@ -419,7 +418,7 @@ mod tests {
         Environment<MockApi, MockStorage, MockQuerier>,
         Box<WasmerInstance>,
     ) {
-        let env = Environment::new(MockApi::default(), gas_limit, false);
+        let env = Environment::new(MockApi::default(), gas_limit, false, 8);
 
         let module = compile(CONTRACT, TESTING_MEMORY_LIMIT, &[]).unwrap();
         let store = module.store();
