@@ -606,7 +606,6 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(true);
-
     let version = instance.get_interface_version()?;
 
     // version 4 has old env and info struct

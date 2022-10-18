@@ -114,7 +114,7 @@ fn check_interface_version(module: &Module) -> VmResult<()> {
 }
 
 /// return interface version, version 4,5 must fix response, version 4 fix info and env
-pub(crate) fn get_interface_version(module: &impl ExportInfo) -> VmResult<u8> {
+pub fn get_interface_version(module: &impl ExportInfo) -> VmResult<u8> {
     // support cosmwasm_vm_version_4 (v0.11.0 - v0.13.2)
     if module
         .exported_function_names(Some("cosmwasm_vm_version_4"))
