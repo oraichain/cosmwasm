@@ -393,8 +393,9 @@ where
         self.env.call_function1(name, args)
     }
 
-    pub(crate) fn is_old_instance(&self) -> bool {
-        self.env.is_old_instance()
+    /// Get the interface version to support multiple cosmwasm
+    pub(crate) fn get_interface_version(&self) -> VmResult<u8> {
+        self.env.get_interface_version()
     }
 }
 

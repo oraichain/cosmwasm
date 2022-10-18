@@ -54,7 +54,8 @@ pub fn run_contract(src: &str) {
     println!("Done excuting contract: {:?}", contract_result);
 
     let msg = br#"{"send_nft":{"contract": "contract", "token_id": "token_id"}}"#;
-    let contract_result = call_execute::<_, _, _, Empty>(&mut instance, &env, &info, msg).unwrap();
+    let contract_result =
+        call_execute::<_, _, _, Empty>(&mut instance, &env, &mock_info("owner", &[]), msg).unwrap();
     println!("Done excuting contract with sub msg: {:?}", contract_result);
 
     let msg = br#"{"all_tokens":{}}"#;

@@ -4,7 +4,7 @@ use wasmer::Val;
 
 use cosmwasm_std::{
     Attribute, BankMsg, Binary, Coin, ContractResult, CosmosMsg, CustomMsg, Env, MessageInfo,
-    QueryResponse, Reply, Response, StakingMsg, WasmMsg,
+    QueryResponse, Reply, Response, StakingMsg, SubMsg, WasmMsg,
 };
 #[cfg(feature = "stargate")]
 use cosmwasm_std::{
@@ -125,6 +125,9 @@ pub enum OldCosmosMsg {
 
 #[derive(Deserialize)]
 pub struct OldResponse {
+    /// version 5 has submessages, so we can use optional or default serde
+    #[serde(default)]
+    pub submessages: Vec<SubMsg>,
     pub messages: Vec<OldCosmosMsg>,
     /// The attributes that will be emitted as part of a "wasm" event
     pub attributes: Vec<Attribute>,
@@ -167,6 +170,11 @@ fn get_new_response(response: Vec<u8>) -> Vec<u8> {
 
         if !old_response.attributes.is_empty() {
             new_response = new_response.add_attributes(old_response.attributes)
+        }
+
+        // this is for version 5
+        if !old_response.submessages.is_empty() {
+            new_response = new_response.add_submessages(old_response.submessages);
         }
 
         if !old_response.messages.is_empty() {
@@ -462,23 +470,32 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
+    let version = instance.get_interface_version()?;
 
-    if instance.is_old_instance() {
+    // version 4 has old env and info struct
+    let response = if version == 4 {
         // this can be called from vm go
-        return call_raw(
+        call_raw(
             instance,
             "init",
             &[&get_old_env(env), &get_old_info(info), msg],
             read_limits::RESULT_INSTANTIATE,
         )
-        .map(get_new_response);
+    } else {
+        call_raw(
+            instance,
+            "instantiate",
+            &[env, info, msg],
+            read_limits::RESULT_INSTANTIATE,
+        )
+    };
+
+    // version 4 & 5 has old response struct
+    if version < 6 {
+        response.map(get_new_response)
+    } else {
+        response
     }
-    call_raw(
-        instance,
-        "instantiate",
-        &[env, info, msg],
-        read_limits::RESULT_INSTANTIATE,
-    )
 }
 
 /// Calls Wasm export "execute" and returns raw data from the contract.
@@ -495,24 +512,32 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
+    let version = instance.get_interface_version()?;
 
-    if instance.is_old_instance() {
+    // version 4 has old env and info struct
+    let response = if version == 4 {
         // this can be called from vm go
-        return call_raw(
+        call_raw(
             instance,
             "handle",
             &[&get_old_env(env), &get_old_info(info), msg],
             read_limits::RESULT_EXECUTE,
         )
-        .map(get_new_response);
-    }
+    } else {
+        call_raw(
+            instance,
+            "execute",
+            &[env, info, msg],
+            read_limits::RESULT_EXECUTE,
+        )
+    };
 
-    call_raw(
-        instance,
-        "execute",
-        &[env, info, msg],
-        read_limits::RESULT_EXECUTE,
-    )
+    // version 4 & 5 has old response struct
+    if version < 6 {
+        response.map(get_new_response)
+    } else {
+        response
+    }
 }
 
 /// Calls Wasm export "migrate" and returns raw data from the contract.
@@ -582,7 +607,10 @@ where
 {
     instance.set_storage_readonly(true);
 
-    if instance.is_old_instance() {
+    let version = instance.get_interface_version()?;
+
+    // version 4 has old env and info struct
+    if version == 4 {
         return call_raw(
             instance,
             "query",

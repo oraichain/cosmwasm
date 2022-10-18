@@ -7,8 +7,6 @@ use crate::errors::{VmError, VmResult};
 use crate::limited::LimitedDisplay;
 use crate::static_analysis::{deserialize_wasm, ExportInfo};
 
-pub(crate) const OLD_EXPORT: &str = "cosmwasm_vm_version_4";
-
 /// Lists all imports we provide upon instantiating the instance in Instance::from_module()
 /// This should be updated when new imports are added
 const SUPPORTED_IMPORTS: &[&str] = &[
@@ -45,8 +43,9 @@ const REQUIRED_EXPORTS: &[&str] = &[
     // IO
     "allocate",
     "deallocate",
-    // Required entry points
-    "instantiate",
+    // we support for all cosmwasm, so we don't check instantiate entrypoint for old version
+    // // Required entry points
+    // "instantiate",
 ];
 
 const INTERFACE_VERSION_PREFIX: &str = "interface_version_";
@@ -103,9 +102,26 @@ fn check_wasm_memories(module: &Module) -> VmResult<()> {
 }
 
 fn check_interface_version(module: &Module) -> VmResult<()> {
+    let version = get_interface_version(module)?;
+    // version from 4 to 8
+    if version > 0 && version <= SUPPORTED_INTERFACE_VERSION {
+        Ok(())
+    } else {
+        Err(VmError::static_validation_err(
+                        "Wasm contract has unknown interface_version_* marker export (see https://github.com/CosmWasm/cosmwasm/blob/main/packages/vm/README.md)",
+                ))
+    }
+}
+
+/// return interface version, version 4,5 must fix response, version 4 fix info and env
+pub(crate) fn get_interface_version(module: &impl ExportInfo) -> VmResult<u8> {
     // support cosmwasm_vm_version_4 (v0.11.0 - v0.13.2)
-    if module.exported_function_names(Some(OLD_EXPORT)).len() == 1 {
-        return Ok(());
+    if module
+        .exported_function_names(Some("cosmwasm_vm_version_4"))
+        .len()
+        == 1
+    {
+        return Ok(4u8);
     }
 
     let mut interface_version_exports = module
@@ -122,13 +138,7 @@ fn check_interface_version(module: &Module) -> VmResult<()> {
                 .parse::<u8>()
                 .unwrap_or_default();
 
-            if version > 0 && version <= SUPPORTED_INTERFACE_VERSION {
-                Ok(())
-            } else {
-                Err(VmError::static_validation_err(
-                        "Wasm contract has unknown interface_version_* marker export (see https://github.com/CosmWasm/cosmwasm/blob/main/packages/vm/README.md)",
-                ))
-            }
+            Ok(version)
         }
     } else {
         Err(VmError::static_validation_err(
@@ -139,11 +149,6 @@ fn check_interface_version(module: &Module) -> VmResult<()> {
 
 fn check_wasm_exports(module: &Module) -> VmResult<()> {
     let available_exports: HashSet<String> = module.exported_function_names(None);
-
-    // support cosmwasm_vm_version_4 (v0.11.0 - v0.13.2)
-    if available_exports.contains(OLD_EXPORT) {
-        return Ok(());
-    }
 
     for required_export in REQUIRED_EXPORTS {
         if !available_exports.contains(*required_export) {
