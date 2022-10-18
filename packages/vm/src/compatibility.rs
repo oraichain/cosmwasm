@@ -49,10 +49,11 @@ const REQUIRED_EXPORTS: &[&str] = &[
 ];
 
 const INTERFACE_VERSION_PREFIX: &str = "interface_version_";
-// support until this version
-const SUPPORTED_INTERFACE_VERSION: u8 = 8;
 
 const MEMORY_LIMIT: u32 = 512; // in pages
+
+// support until this version
+pub const INTERFACE_VERSION: u8 = 8;
 
 /// Checks if the data is valid wasm and compatibility with the CosmWasm API (imports and exports)
 pub fn check_wasm(wasm_code: &[u8], available_capabilities: &HashSet<String>) -> VmResult<()> {
@@ -104,7 +105,7 @@ fn check_wasm_memories(module: &Module) -> VmResult<()> {
 fn check_interface_version(module: &Module) -> VmResult<()> {
     let version = get_interface_version(module)?;
     // version from 4 to 8
-    if version > 0 && version <= SUPPORTED_INTERFACE_VERSION {
+    if version > 0 && version <= INTERFACE_VERSION {
         Ok(())
     } else {
         Err(VmError::static_validation_err(

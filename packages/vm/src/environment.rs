@@ -8,6 +8,7 @@ use wasmer::{HostEnvInitError, Instance as WasmerInstance, Memory, Val, WasmerEn
 use wasmer_middlewares::metering::{get_remaining_points, set_remaining_points, MeteringPoints};
 
 use crate::backend::{BackendApi, GasInfo, Querier, Storage};
+use crate::compatibility::INTERFACE_VERSION;
 use crate::errors::{VmError, VmResult};
 
 /// Never can never be instantiated.
@@ -127,13 +128,13 @@ impl<A: BackendApi, S: Storage, Q: Querier> WasmerEnv for Environment<A, S, Q> {
 }
 
 impl<A: BackendApi, S: Storage, Q: Querier> Environment<A, S, Q> {
-    pub fn new(api: A, gas_limit: u64, print_debug: bool, interface_version: u8) -> Self {
+    pub fn new(api: A, gas_limit: u64, print_debug: bool, interface_version: Option<u8>) -> Self {
         Environment {
             api,
             print_debug,
             gas_config: GasConfig::default(),
             poseidon: Poseidon::new(),
-            interface_version,
+            interface_version: interface_version.unwrap_or(INTERFACE_VERSION),
             data: Arc::new(RwLock::new(ContextData::new(gas_limit))),
         }
     }
@@ -418,7 +419,7 @@ mod tests {
         Environment<MockApi, MockStorage, MockQuerier>,
         Box<WasmerInstance>,
     ) {
-        let env = Environment::new(MockApi::default(), gas_limit, false, 8);
+        let env = Environment::new(MockApi::default(), gas_limit, false, None);
 
         let module = compile(CONTRACT, TESTING_MEMORY_LIMIT, &[]).unwrap();
         let store = module.store();

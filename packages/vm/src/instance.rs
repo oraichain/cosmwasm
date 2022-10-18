@@ -6,6 +6,7 @@ use wasmer::{Exports, Function, ImportObject, Instance as WasmerInstance, Module
 
 use crate::backend::{Backend, BackendApi, Querier, Storage};
 use crate::capabilities::required_capabilities_from_module;
+use crate::compatibility::get_interface_version;
 use crate::conversion::{ref_to_u32, to_u32};
 use crate::environment::Environment;
 use crate::errors::{CommunicationError, VmError, VmResult};
@@ -84,9 +85,13 @@ where
         instantiation_lock: Option<&Mutex<()>>,
     ) -> VmResult<Self> {
         let store = module.store();
-        let interface_version = crate::compatibility::get_interface_version(module)?;
 
-        let env = Environment::new(backend.api, gas_limit, print_debug, interface_version);
+        let env = Environment::new(
+            backend.api,
+            gas_limit,
+            print_debug,
+            get_interface_version(module).ok(),
+        );
 
         let mut import_obj = ImportObject::new();
         let mut env_imports = Exports::new();
