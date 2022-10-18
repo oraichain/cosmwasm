@@ -4,7 +4,7 @@ use wasmer::Val;
 
 use cosmwasm_std::{
     Attribute, BankMsg, Binary, Coin, ContractResult, CosmosMsg, CustomMsg, Env, MessageInfo,
-    QueryResponse, Reply, Response, StakingMsg, SubMsg, WasmMsg,
+    QueryResponse, Reply, Response, SubMsg, WasmMsg,
 };
 #[cfg(feature = "stargate")]
 use cosmwasm_std::{
@@ -119,7 +119,8 @@ pub enum OldWasmMsg {
 #[serde(rename_all = "snake_case")]
 pub enum OldCosmosMsg {
     Bank(BankMsg),
-    Staking(StakingMsg),
+    #[cfg(feature = "staking")]
+    Staking(cosmwasm_std::StakingMsg),
     Wasm(OldWasmMsg),
 }
 
@@ -205,6 +206,7 @@ fn get_new_response(response: Vec<u8>) -> Vec<u8> {
                             funds: send,
                         }),
                         OldCosmosMsg::Bank(msg) => CosmosMsg::Bank(msg),
+                        #[cfg(feature = "staking")]
                         OldCosmosMsg::Staking(msg) => CosmosMsg::Staking(msg),
                     })
                     .collect::<Vec<CosmosMsg>>(),
