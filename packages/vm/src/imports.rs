@@ -675,7 +675,7 @@ mod tests {
 
         let key_ptr = write_data(&mut store, &env, KEY1);
         let result = do_db_read(
-            FunctionEnv::new(&mut store, env).into_mut(&mut store),
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
             key_ptr,
         );
         let value_ptr = result.unwrap();
@@ -756,7 +756,7 @@ mod tests {
         leave_default_data(&env);
 
         do_db_write(
-            FunctionEnv::new(&mut store, env).into_mut(&mut store),
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
             key_ptr,
             value_ptr,
         )
@@ -781,7 +781,7 @@ mod tests {
         leave_default_data(&env);
 
         do_db_write(
-            FunctionEnv::new(&mut store, env).into_mut(&mut store),
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
             key_ptr,
             value_ptr,
         )
@@ -897,7 +897,7 @@ mod tests {
         .unwrap();
 
         do_db_remove(
-            FunctionEnv::new(&mut store, env).into_mut(&mut store),
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
             key_ptr,
         )
         .unwrap();
@@ -1136,7 +1136,7 @@ mod tests {
         assert_eq!(err, "Input is not valid UTF-8");
 
         let res = do_addr_canonicalize(
-            FunctionEnv::new(&mut store, env).into_mut(&mut store),
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
             source_ptr2,
             dest_ptr,
         )

@@ -3,7 +3,8 @@ use std::ptr::NonNull;
 use std::sync::Mutex;
 
 use wasmer::{
-    Exports, Function, FunctionEnv, Imports, Instance as WasmerInstance, Module, Store, Value,
+    AsStoreMut, Exports, Function, FunctionEnv, Imports, Instance as WasmerInstance, Module, Store,
+    Value,
 };
 
 use crate::backend::{Backend, BackendApi, Querier, Storage};
@@ -66,7 +67,7 @@ where
         options: InstanceOptions,
         memory_limit: Option<Size>,
     ) -> VmResult<Self> {
-        let (module, store) = compile(code, memory_limit, &[])?;
+        let (module, mut store) = compile(code, memory_limit, &[])?;
 
         Instance::from_module(
             store,
@@ -290,14 +291,14 @@ where
     }
 
     /// Returns the currently remaining gas.
-    pub fn get_gas_left(&self) -> u64 {
+    pub fn get_gas_left(&mut self) -> u64 {
         self.env.get_gas_left(&mut self.store)
     }
 
     /// Creates and returns a gas report.
     /// This is a snapshot and multiple reports can be created during the lifetime of
     /// an instance.
-    pub fn create_gas_report(&self) -> GasReport {
+    pub fn create_gas_report(&mut self) -> GasReport {
         let state = self.env.with_gas_state(|gas_state| gas_state.clone());
         let gas_left = self.env.get_gas_left(&mut self.store);
         GasReport {
@@ -361,13 +362,13 @@ where
 
     /// Calls a function exported by the instance.
     /// The function is expected to return no value. Otherwise this calls errors.
-    pub(crate) fn call_function0(&self, name: &str, args: &[Value]) -> VmResult<()> {
+    pub(crate) fn call_function0(&mut self, name: &str, args: &[Value]) -> VmResult<()> {
         self.env.call_function0(&mut self.store, name, args)
     }
 
     /// Calls a function exported by the instance.
     /// The function is expected to return one value. Otherwise this calls errors.
-    pub(crate) fn call_function1(&self, name: &str, args: &[Value]) -> VmResult<Value> {
+    pub(crate) fn call_function1(&mut self, name: &str, args: &[Value]) -> VmResult<Value> {
         self.env.call_function1(&mut self.store, name, args)
     }
 }
@@ -375,7 +376,7 @@ where
 /// This exists only to be exported through `internals` for use by crates that are
 /// part of Cosmwasm.
 pub fn instance_from_module<A, S, Q>(
-    store: Store,
+    mut store: Store,
     module: &Module,
     backend: Backend<A, S, Q>,
     gas_limit: u64,
@@ -469,7 +470,7 @@ mod tests {
 
         let backend = mock_backend(&[]);
         let (instance_options, memory_limit) = mock_instance_options();
-        let (module, store) = compile(&wasm, memory_limit, &[]).unwrap();
+        let (module, mut store) = compile(&wasm, memory_limit, &[]).unwrap();
 
         struct MyEnv {
             // This can be mutated across threads safely. We initialize it as `false`
@@ -511,7 +512,7 @@ mod tests {
 
     #[test]
     fn call_function0_works() {
-        let instance = mock_instance(CONTRACT, &[]);
+        let mut instance = mock_instance(CONTRACT, &[]);
 
         instance
             .call_function0("interface_version_8", &[])
@@ -522,7 +523,7 @@ mod tests {
     fn call_function1_works() {
         let store = Store::default();
 
-        let instance = mock_instance(CONTRACT, &[]);
+        let mut instance = mock_instance(CONTRACT, &[]);
 
         // can call function few times
         let result = instance
@@ -711,7 +712,7 @@ mod tests {
 
     #[test]
     fn get_gas_left_works() {
-        let instance = mock_instance_with_gas_limit(CONTRACT, 123321);
+        let mut instance = mock_instance_with_gas_limit(CONTRACT, 123321);
         let orig_gas = instance.get_gas_left();
         assert_eq!(orig_gas, 123321);
     }
