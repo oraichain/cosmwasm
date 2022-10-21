@@ -131,7 +131,7 @@ mod tests {
         let wasm = wat::parse_str(EXPORTED_MEMORY_WAT).unwrap();
 
         // No limit
-        let store = make_compile_time_store(None, &[]);
+        let mut store = make_compile_time_store(None, &[]);
         let module = Module::new(&store, &wasm).unwrap();
         let module_memory = module.info().memories.last().unwrap();
         assert_eq!(module_memory.minimum, Pages(4));
@@ -148,7 +148,7 @@ mod tests {
         assert_eq!(instance_memory.ty(&mut store).maximum, None);
 
         // Set limit
-        let store = make_compile_time_store(Some(Size::kibi(23 * 64)), &[]);
+        let mut store = make_compile_time_store(Some(Size::kibi(23 * 64)), &[]);
         let module = Module::new(&store, &wasm).unwrap();
         let module_memory = module.info().memories.last().unwrap();
         assert_eq!(module_memory.minimum, Pages(4));
@@ -176,7 +176,7 @@ mod tests {
         };
 
         // No limit
-        let store = make_runtime_store(None);
+        let mut store = make_runtime_store(None);
         let module = unsafe { Module::deserialize(&store, &serialized) }.unwrap();
         let module_memory = module.info().memories.last().unwrap();
         assert_eq!(module_memory.minimum, Pages(4));
@@ -193,7 +193,7 @@ mod tests {
         assert_eq!(instance_memory.ty(&mut store).maximum, None);
 
         // Instantiate with limit
-        let store = make_runtime_store(Some(Size::kibi(23 * 64)));
+        let mut store = make_runtime_store(Some(Size::kibi(23 * 64)));
         let module = unsafe { Module::deserialize(&store, &serialized) }.unwrap();
         let module_memory = module.info().memories.last().unwrap();
         assert_eq!(module_memory.minimum, Pages(4));

@@ -142,7 +142,7 @@ mod tests {
         assert!(cache_entry.is_none());
 
         // Compile module
-        let (original, store) = compile(&wasm, None, &[]).unwrap();
+        let (original, mut store) = compile(&wasm, None, &[]).unwrap();
 
         // Ensure original module can be executed
         {

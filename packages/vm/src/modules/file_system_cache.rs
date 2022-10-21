@@ -174,7 +174,7 @@ mod tests {
         cache.store(&checksum, &module).unwrap();
 
         // Load module
-        let store = make_runtime_store(TESTING_MEMORY_LIMIT);
+        let mut store = make_runtime_store(TESTING_MEMORY_LIMIT);
         let cached = cache.load(&checksum, &store).unwrap();
         assert!(cached.is_some());
 

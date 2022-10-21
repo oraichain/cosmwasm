@@ -728,7 +728,7 @@ mod tests {
         leave_default_data(&env);
 
         do_db_write(
-            FunctionEnv::new(&mut store, env).into_mut(&mut store),
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
             key_ptr,
             value_ptr,
         )
@@ -1103,7 +1103,7 @@ mod tests {
 
         let api = MockApi::default();
         let res = do_addr_canonicalize(
-            FunctionEnv::new(&mut store, env).into_mut(&mut store),
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
             source_ptr,
             dest_ptr,
         )
@@ -1126,7 +1126,7 @@ mod tests {
         leave_default_data(&env);
 
         let res = do_addr_canonicalize(
-            FunctionEnv::new(&mut store, env).into_mut(&mut store),
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
             source_ptr1,
             dest_ptr,
         )
@@ -1146,7 +1146,7 @@ mod tests {
         assert_eq!(err, "Input is empty");
 
         let res = do_addr_canonicalize(
-            FunctionEnv::new(&mut store, env).into_mut(&mut store),
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
             source_ptr3,
             dest_ptr,
         )
@@ -1250,7 +1250,7 @@ mod tests {
         leave_default_data(&env);
 
         let error_ptr = do_addr_humanize(
-            FunctionEnv::new(&mut store, env).into_mut(&mut store),
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
             source_ptr,
             dest_ptr,
         )
@@ -1270,7 +1270,7 @@ mod tests {
         leave_default_data(&env);
 
         let res = do_addr_humanize(
-            FunctionEnv::new(&mut store, env).into_mut(&mut store),
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
             source_ptr,
             dest_ptr,
         )
@@ -1718,7 +1718,7 @@ mod tests {
         let hash_ptr = write_data(&mut store, &env, &hash);
         let sig_ptr = write_data(&mut store, &env, &sig);
         let result = do_secp256k1_recover_pubkey(
-            FunctionEnv::new(&mut store, env).into_mut(&mut store),
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
             hash_ptr,
             sig_ptr,
             recovery_param,
@@ -2033,7 +2033,7 @@ mod tests {
         leave_default_data(&env);
 
         let response_ptr = do_query_chain(
-            FunctionEnv::new(&mut store, env).into_mut(&mut store),
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
             request_ptr,
         )
         .unwrap();
@@ -2058,7 +2058,7 @@ mod tests {
         leave_default_data(&env);
 
         let response_ptr = do_query_chain(
-            FunctionEnv::new(&mut store, env).into_mut(&mut store),
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
             request_ptr,
         )
         .unwrap();
@@ -2090,7 +2090,7 @@ mod tests {
         leave_default_data(&env);
 
         let response_ptr = do_query_chain(
-            FunctionEnv::new(&mut store, env).into_mut(&mut store),
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
             request_ptr,
         )
         .unwrap();
@@ -2116,7 +2116,7 @@ mod tests {
 
         // set up iterator over all space
         let id = do_db_scan(
-            FunctionEnv::new(&mut store, env).into_mut(&mut store),
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
             0,
             0,
             Order::Ascending.into(),
@@ -2149,7 +2149,7 @@ mod tests {
 
         // set up iterator over all space
         let id = do_db_scan(
-            FunctionEnv::new(&mut store, env).into_mut(&mut store),
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
             0,
             0,
             Order::Descending.into(),
@@ -2185,7 +2185,7 @@ mod tests {
         leave_default_data(&env);
 
         let id = do_db_scan(
-            FunctionEnv::new(&mut store, env).into_mut(&mut store),
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
             start,
             end,
             Order::Ascending.into(),
@@ -2212,14 +2212,14 @@ mod tests {
 
         // unbounded, ascending and descending
         let id1 = do_db_scan(
-            FunctionEnv::new(&mut store, env).into_mut(&mut store),
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
             0,
             0,
             Order::Ascending.into(),
         )
         .unwrap();
         let id2 = do_db_scan(
-            FunctionEnv::new(&mut store, env).into_mut(&mut store),
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
             0,
             0,
             Order::Descending.into(),
@@ -2291,7 +2291,7 @@ mod tests {
         leave_default_data(&env);
 
         let id = do_db_scan(
-            FunctionEnv::new(&mut store, env).into_mut(&mut store),
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
             0,
             0,
             Order::Ascending.into(),
@@ -2299,24 +2299,33 @@ mod tests {
         .unwrap();
 
         // Entry 1
-        let kv_region_ptr =
-            do_db_next(FunctionEnv::new(&mut store, env).into_mut(&mut store), id).unwrap();
+        let kv_region_ptr = do_db_next(
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
+            id,
+        )
+        .unwrap();
         assert_eq!(
             force_read(&env, &mut store, kv_region_ptr),
             [KEY1, b"\0\0\0\x03", VALUE1, b"\0\0\0\x06"].concat()
         );
 
         // Entry 2
-        let kv_region_ptr =
-            do_db_next(FunctionEnv::new(&mut store, env).into_mut(&mut store), id).unwrap();
+        let kv_region_ptr = do_db_next(
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
+            id,
+        )
+        .unwrap();
         assert_eq!(
             force_read(&env, &mut store, kv_region_ptr),
             [KEY2, b"\0\0\0\x04", VALUE2, b"\0\0\0\x05"].concat()
         );
 
         // End
-        let kv_region_ptr =
-            do_db_next(FunctionEnv::new(&mut store, env).into_mut(&mut store), id).unwrap();
+        let kv_region_ptr = do_db_next(
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
+            id,
+        )
+        .unwrap();
         assert_eq!(
             force_read(&env, &mut store, kv_region_ptr),
             b"\0\0\0\0\0\0\0\0"

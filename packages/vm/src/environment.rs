@@ -403,7 +403,7 @@ mod tests {
     ) {
         let env = Environment::new(MockApi::default(), gas_limit, false);
 
-        let (module, store) = compile(CONTRACT, TESTING_MEMORY_LIMIT, &[]).unwrap();
+        let (module, mut store) = compile(CONTRACT, TESTING_MEMORY_LIMIT, &[]).unwrap();
         // we need stubs for all required imports
         let import_obj = imports! {
             "env" => {
@@ -471,7 +471,7 @@ mod tests {
 
     #[test]
     fn process_gas_info_works_for_cost() {
-        let (env, _instance, store) = make_instance(100);
+        let (env, _instance, mut store) = make_instance(100);
         assert_eq!(env.get_gas_left(&mut store), 100);
 
         // Consume all the Gas that we allocated
@@ -493,7 +493,7 @@ mod tests {
 
     #[test]
     fn process_gas_info_works_for_externally_used() {
-        let (env, _instance, store) = make_instance(100);
+        let (env, _instance, mut store) = make_instance(100);
         assert_eq!(env.get_gas_left(&mut store), 100);
 
         // Consume all the Gas that we allocated
@@ -515,7 +515,7 @@ mod tests {
 
     #[test]
     fn process_gas_info_works_for_cost_and_externally_used() {
-        let (env, _instance, store) = make_instance(100);
+        let (env, _instance, mut store) = make_instance(100);
         assert_eq!(env.get_gas_left(&mut store), 100);
         let gas_state = env.with_gas_state(|gas_state| gas_state.clone());
         assert_eq!(gas_state.gas_limit, 100);
@@ -564,7 +564,7 @@ mod tests {
     fn process_gas_info_zeros_gas_left_when_exceeded() {
         // with_externally_used
         {
-            let (env, _instance, store) = make_instance(100);
+            let (env, _instance, mut store) = make_instance(100);
             let result = process_gas_info(&env, &mut store, GasInfo::with_externally_used(120));
             match result.unwrap_err() {
                 VmError::GasDepletion { .. } => {}
@@ -578,7 +578,7 @@ mod tests {
 
         // with_cost
         {
-            let (env, _instance, store) = make_instance(100);
+            let (env, _instance, mut store) = make_instance(100);
             let result = process_gas_info(&env, &mut store, GasInfo::with_cost(120));
             match result.unwrap_err() {
                 VmError::GasDepletion { .. } => {}
@@ -593,7 +593,7 @@ mod tests {
 
     #[test]
     fn process_gas_info_works_correctly_with_gas_consumption_in_wasmer() {
-        let (env, _instance, store) = make_instance(100);
+        let (env, _instance, mut store) = make_instance(100);
         assert_eq!(env.get_gas_left(&mut store), 100);
 
         // Some gas was consumed externally
@@ -620,7 +620,7 @@ mod tests {
 
     #[test]
     fn is_storage_readonly_defaults_to_true() {
-        let (env, _instance, store) = make_instance(TESTING_GAS_LIMIT);
+        let (env, _instance, mut store) = make_instance(TESTING_GAS_LIMIT);
         leave_default_data(&env);
 
         assert!(env.is_storage_readonly());
@@ -646,7 +646,7 @@ mod tests {
 
     #[test]
     fn call_function_works() {
-        let (env, _instance, store) = make_instance(TESTING_GAS_LIMIT);
+        let (env, _instance, mut store) = make_instance(TESTING_GAS_LIMIT);
         leave_default_data(&env);
 
         let result = env
@@ -658,7 +658,7 @@ mod tests {
 
     #[test]
     fn call_function_fails_for_missing_instance() {
-        let (env, _instance, store) = make_instance(TESTING_GAS_LIMIT);
+        let (env, _instance, mut store) = make_instance(TESTING_GAS_LIMIT);
         leave_default_data(&env);
 
         // Clear context's wasmer_instance
@@ -673,7 +673,7 @@ mod tests {
 
     #[test]
     fn call_function_fails_for_missing_function() {
-        let (env, _instance, store) = make_instance(TESTING_GAS_LIMIT);
+        let (env, _instance, mut store) = make_instance(TESTING_GAS_LIMIT);
         leave_default_data(&env);
 
         let res = env.call_function(&mut store, "doesnt_exist", &[]);
@@ -687,7 +687,7 @@ mod tests {
 
     #[test]
     fn call_function0_works() {
-        let (env, _instance, store) = make_instance(TESTING_GAS_LIMIT);
+        let (env, _instance, mut store) = make_instance(TESTING_GAS_LIMIT);
         leave_default_data(&env);
 
         env.call_function0(&mut store, "interface_version_8", &[])
@@ -696,7 +696,7 @@ mod tests {
 
     #[test]
     fn call_function0_errors_for_wrong_result_count() {
-        let (env, _instance, store) = make_instance(TESTING_GAS_LIMIT);
+        let (env, _instance, mut store) = make_instance(TESTING_GAS_LIMIT);
         leave_default_data(&env);
 
         let result = env.call_function0(&mut store, "allocate", &[10u32.into()]);
@@ -717,7 +717,7 @@ mod tests {
 
     #[test]
     fn call_function1_works() {
-        let (env, _instance, store) = make_instance(TESTING_GAS_LIMIT);
+        let (env, _instance, mut store) = make_instance(TESTING_GAS_LIMIT);
         leave_default_data(&env);
 
         let result = env
@@ -729,7 +729,7 @@ mod tests {
 
     #[test]
     fn call_function1_errors_for_wrong_result_count() {
-        let (env, _instance, store) = make_instance(TESTING_GAS_LIMIT);
+        let (env, _instance, mut store) = make_instance(TESTING_GAS_LIMIT);
         leave_default_data(&env);
 
         let result = env
