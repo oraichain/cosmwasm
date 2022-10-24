@@ -107,8 +107,9 @@ pub fn write_region(
 
     let view = memory.view(store);
     let slice = WasmPtr::<u8>::new(region.offset)
-        .slice(&view, region.length)
+        .slice(&view, region.capacity)
         .unwrap();
+
     slice.write_slice(data).unwrap();
     region.length = data.len() as u32;
     set_region(memory, store, ptr, region)?;

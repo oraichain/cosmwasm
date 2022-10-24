@@ -16,7 +16,7 @@ fn current_wasmer_module_header() -> Vec<u8> {
     let mut bytes = module.serialize().unwrap_or_default();
 
     bytes.truncate(ENGINE_TYPE_LEN + METADATA_HEADER_LEN);
-    bytes
+    bytes.to_vec()
 }
 
 /// Obtains the module version from Wasmer that is currently used.

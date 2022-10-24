@@ -177,7 +177,7 @@ mod tests {
 
         // No limit
         let mut store = make_runtime_store(None);
-        let module = unsafe { Module::deserialize(&store, &serialized) }.unwrap();
+        let module = unsafe { Module::deserialize(&store, &*serialized) }.unwrap();
         let module_memory = module.info().memories.last().unwrap();
         assert_eq!(module_memory.minimum, Pages(4));
         assert_eq!(module_memory.maximum, None);
@@ -194,7 +194,7 @@ mod tests {
 
         // Instantiate with limit
         let mut store = make_runtime_store(Some(Size::kibi(23 * 64)));
-        let module = unsafe { Module::deserialize(&store, &serialized) }.unwrap();
+        let module = unsafe { Module::deserialize(&store, &*serialized) }.unwrap();
         let module_memory = module.info().memories.last().unwrap();
         assert_eq!(module_memory.minimum, Pages(4));
         assert_eq!(module_memory.maximum, None);
