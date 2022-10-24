@@ -593,13 +593,11 @@ mod tests {
     use super::*;
     use crate::testing::{mock_env, mock_info, mock_instance};
     use cosmwasm_std::{coins, Empty};
-    use wasmer::Store;
 
     static CONTRACT: &[u8] = include_bytes!("../testdata/hackatom.wasm");
 
     #[test]
     fn call_instantiate_works() {
-        let store = Store::default();
         let mut instance = mock_instance(CONTRACT, &[]);
 
         // init
@@ -612,7 +610,6 @@ mod tests {
 
     #[test]
     fn call_execute_works() {
-        let store = Store::default();
         let mut instance = mock_instance(CONTRACT, &[]);
 
         // init

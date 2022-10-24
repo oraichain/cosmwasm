@@ -8,7 +8,7 @@ use cosmwasm_crypto::{
 use cosmwasm_crypto::{
     ECDSA_PUBKEY_MAX_LEN, ECDSA_SIGNATURE_LEN, EDDSA_PUBKEY_LEN, MESSAGE_HASH_MAX_LEN,
 };
-use wasmer::{AsStoreMut, AsStoreRef, FunctionEnvMut, Store};
+use wasmer::{AsStoreMut, FunctionEnvMut};
 
 use crate::backend::{BackendApi, BackendError, Querier, Storage};
 use crate::conversion::{ref_to_u32, to_u32};
@@ -65,34 +65,34 @@ const MAX_LENGTH_ABORT: usize = 2 * MI;
 // through the env.
 
 /// Reads a storage entry from the VM's storage into Wasm memory
-pub fn do_db_read<A: BackendApi, S: Storage, Q: Querier>(
-    mut env: FunctionEnvMut<Environment<A, S, Q>>,
+pub fn do_db_read<A: BackendApi + 'static, S: Storage + 'static, Q: Querier + 'static>(
+    mut fenv: FunctionEnvMut<Environment<A, S, Q>>,
     key_ptr: u32,
 ) -> VmResult<u32> {
-    let store = env.as_store_mut();
-    let env = env.data();
+    let env = fenv.data().clone();
+    let mut store = fenv.as_store_mut();
 
     let key = read_region(&env.memory(), &store, key_ptr, MAX_LENGTH_DB_KEY)?;
 
     let (result, gas_info) = env.with_storage_from_context::<_, _>(|store| Ok(store.get(&key)))?;
-    process_gas_info::<A, S, Q>(env, &mut store, gas_info)?;
+    process_gas_info::<A, S, Q>(&env, &mut store, gas_info)?;
     let value = result?;
 
     let out_data = match value {
         Some(data) => data,
         None => return Ok(0),
     };
-    write_to_contract::<A, S, Q>(env, &mut store, &out_data)
+    write_to_contract::<A, S, Q>(&env, &mut store, &out_data)
 }
 
 /// Writes a storage entry from Wasm memory into the VM's storage
-pub fn do_db_write<A: BackendApi, S: Storage, Q: Querier>(
-    mut env: FunctionEnvMut<Environment<A, S, Q>>,
+pub fn do_db_write<A: BackendApi + 'static, S: Storage + 'static, Q: Querier + 'static>(
+    mut fenv: FunctionEnvMut<Environment<A, S, Q>>,
     key_ptr: u32,
     value_ptr: u32,
 ) -> VmResult<()> {
-    let store = env.as_store_mut();
-    let env = env.data();
+    let env = fenv.data().clone();
+    let mut store = fenv.as_store_mut();
 
     if env.is_storage_readonly() {
         return Err(VmError::write_access_denied());
@@ -103,18 +103,18 @@ pub fn do_db_write<A: BackendApi, S: Storage, Q: Querier>(
 
     let (result, gas_info) =
         env.with_storage_from_context::<_, _>(|store| Ok(store.set(&key, &value)))?;
-    process_gas_info::<A, S, Q>(env, &mut store, gas_info)?;
+    process_gas_info::<A, S, Q>(&env, &mut store, gas_info)?;
     result?;
 
     Ok(())
 }
 
-pub fn do_db_remove<A: BackendApi, S: Storage, Q: Querier>(
-    mut env: FunctionEnvMut<Environment<A, S, Q>>,
+pub fn do_db_remove<A: BackendApi + 'static, S: Storage + 'static, Q: Querier + 'static>(
+    mut fenv: FunctionEnvMut<Environment<A, S, Q>>,
     key_ptr: u32,
 ) -> VmResult<()> {
-    let store = env.as_store_mut();
-    let env = env.data();
+    let env = fenv.data().clone();
+    let mut store = fenv.as_store_mut();
 
     if env.is_storage_readonly() {
         return Err(VmError::write_access_denied());
@@ -124,80 +124,80 @@ pub fn do_db_remove<A: BackendApi, S: Storage, Q: Querier>(
 
     let (result, gas_info) =
         env.with_storage_from_context::<_, _>(|store| Ok(store.remove(&key)))?;
-    process_gas_info(env, &mut store, gas_info)?;
+    process_gas_info(&env, &mut store, gas_info)?;
     result?;
 
     Ok(())
 }
 
-pub fn do_addr_validate<A: BackendApi, S: Storage, Q: Querier>(
-    mut env: FunctionEnvMut<Environment<A, S, Q>>,
+pub fn do_addr_validate<A: BackendApi + 'static, S: Storage + 'static, Q: Querier + 'static>(
+    mut fenv: FunctionEnvMut<Environment<A, S, Q>>,
     source_ptr: u32,
 ) -> VmResult<u32> {
-    let store = env.as_store_mut();
-    let env = env.data();
+    let env = fenv.data().clone();
+    let mut store = fenv.as_store_mut();
 
     let source_data = read_region(&env.memory(), &store, source_ptr, MAX_LENGTH_HUMAN_ADDRESS)?;
     if source_data.is_empty() {
-        return write_to_contract::<A, S, Q>(env, &mut store, b"Input is empty");
+        return write_to_contract::<A, S, Q>(&env, &mut store, b"Input is empty");
     }
 
     let source_string = match String::from_utf8(source_data) {
         Ok(s) => s,
         Err(_) => {
-            return write_to_contract::<A, S, Q>(env, &mut store, b"Input is not valid UTF-8")
+            return write_to_contract::<A, S, Q>(&env, &mut store, b"Input is not valid UTF-8")
         }
     };
 
     let (result, gas_info) = env.api.canonical_address(&source_string);
-    process_gas_info::<A, S, Q>(env, &mut store, gas_info)?;
+    process_gas_info::<A, S, Q>(&env, &mut store, gas_info)?;
     let canonical = match result {
         Ok(data) => data,
         Err(BackendError::UserErr { msg, .. }) => {
-            return write_to_contract::<A, S, Q>(env, &mut store, msg.as_bytes())
+            return write_to_contract::<A, S, Q>(&env, &mut store, msg.as_bytes())
         }
         Err(err) => return Err(VmError::from(err)),
     };
 
     let (result, gas_info) = env.api.human_address(&canonical);
-    process_gas_info::<A, S, Q>(&mut env, &mut store, gas_info)?;
+    process_gas_info::<A, S, Q>(&env, &mut store, gas_info)?;
     let normalized = match result {
         Ok(addr) => addr,
         Err(BackendError::UserErr { msg, .. }) => {
-            return write_to_contract::<A, S, Q>(env, &mut store, msg.as_bytes())
+            return write_to_contract::<A, S, Q>(&env, &mut store, msg.as_bytes())
         }
         Err(err) => return Err(VmError::from(err)),
     };
 
     if normalized != source_string {
-        return write_to_contract::<A, S, Q>(env, &mut store, b"Address is not normalized");
+        return write_to_contract::<A, S, Q>(&env, &mut store, b"Address is not normalized");
     }
 
     Ok(0)
 }
 
-pub fn do_addr_canonicalize<A: BackendApi, S: Storage, Q: Querier>(
-    mut env: FunctionEnvMut<Environment<A, S, Q>>,
+pub fn do_addr_canonicalize<A: BackendApi + 'static, S: Storage + 'static, Q: Querier + 'static>(
+    mut fenv: FunctionEnvMut<Environment<A, S, Q>>,
     source_ptr: u32,
     destination_ptr: u32,
 ) -> VmResult<u32> {
-    let store = env.as_store_mut();
-    let env = env.data();
+    let env = fenv.data().clone();
+    let mut store = fenv.as_store_mut();
 
     let source_data = read_region(&env.memory(), &store, source_ptr, MAX_LENGTH_HUMAN_ADDRESS)?;
     if source_data.is_empty() {
-        return write_to_contract::<A, S, Q>(env, &mut store, b"Input is empty");
+        return write_to_contract::<A, S, Q>(&env, &mut store, b"Input is empty");
     }
 
     let source_string = match String::from_utf8(source_data) {
         Ok(s) => s,
         Err(_) => {
-            return write_to_contract::<A, S, Q>(env, &mut store, b"Input is not valid UTF-8")
+            return write_to_contract::<A, S, Q>(&env, &mut store, b"Input is not valid UTF-8")
         }
     };
 
     let (result, gas_info) = env.api.canonical_address(&source_string);
-    process_gas_info::<A, S, Q>(env, &mut store, gas_info)?;
+    process_gas_info::<A, S, Q>(&env, &mut store, gas_info)?;
     match result {
         Ok(canonical) => {
             write_region(
@@ -209,7 +209,7 @@ pub fn do_addr_canonicalize<A: BackendApi, S: Storage, Q: Querier>(
             Ok(0)
         }
         Err(BackendError::UserErr { msg, .. }) => Ok(write_to_contract::<A, S, Q>(
-            env,
+            &env,
             &mut store,
             msg.as_bytes(),
         )?),
@@ -217,13 +217,13 @@ pub fn do_addr_canonicalize<A: BackendApi, S: Storage, Q: Querier>(
     }
 }
 
-pub fn do_addr_humanize<A: BackendApi, S: Storage, Q: Querier>(
-    mut env: FunctionEnvMut<Environment<A, S, Q>>,
+pub fn do_addr_humanize<A: BackendApi + 'static, S: Storage + 'static, Q: Querier + 'static>(
+    mut fenv: FunctionEnvMut<Environment<A, S, Q>>,
     source_ptr: u32,
     destination_ptr: u32,
 ) -> VmResult<u32> {
-    let store = env.as_store_mut();
-    let env = env.data();
+    let env = fenv.data().clone();
+    let mut store = fenv.as_store_mut();
 
     let canonical = read_region(
         &env.memory(),
@@ -233,14 +233,14 @@ pub fn do_addr_humanize<A: BackendApi, S: Storage, Q: Querier>(
     )?;
 
     let (result, gas_info) = env.api.human_address(&canonical);
-    process_gas_info::<A, S, Q>(env, &mut store, gas_info)?;
+    process_gas_info::<A, S, Q>(&env, &mut store, gas_info)?;
     match result {
         Ok(human) => {
             write_region(&env.memory(), &store, destination_ptr, human.as_bytes())?;
             Ok(0)
         }
         Err(BackendError::UserErr { msg, .. }) => Ok(write_to_contract::<A, S, Q>(
-            env,
+            &env,
             &mut store,
             msg.as_bytes(),
         )?),
@@ -248,14 +248,14 @@ pub fn do_addr_humanize<A: BackendApi, S: Storage, Q: Querier>(
     }
 }
 
-pub fn do_secp256k1_verify<A: BackendApi, S: Storage, Q: Querier>(
-    mut env: FunctionEnvMut<Environment<A, S, Q>>,
+pub fn do_secp256k1_verify<A: BackendApi + 'static, S: Storage + 'static, Q: Querier + 'static>(
+    mut fenv: FunctionEnvMut<Environment<A, S, Q>>,
     hash_ptr: u32,
     signature_ptr: u32,
     pubkey_ptr: u32,
 ) -> VmResult<u32> {
-    let store = env.as_store_mut();
-    let env = env.data();
+    let env = fenv.data().clone();
+    let mut store = fenv.as_store_mut();
 
     let hash = read_region(&env.memory(), &store, hash_ptr, MESSAGE_HASH_MAX_LEN)?;
     let signature = read_region(&env.memory(), &store, signature_ptr, ECDSA_SIGNATURE_LEN)?;
@@ -263,7 +263,7 @@ pub fn do_secp256k1_verify<A: BackendApi, S: Storage, Q: Querier>(
 
     let result = secp256k1_verify(&hash, &signature, &pubkey);
     let gas_info = GasInfo::with_cost(env.gas_config.secp256k1_verify_cost);
-    process_gas_info::<A, S, Q>(env, &mut store, gas_info)?;
+    process_gas_info::<A, S, Q>(&env, &mut store, gas_info)?;
     Ok(result.map_or_else(
         |err| match err {
             CryptoError::InvalidHashFormat { .. }
@@ -278,14 +278,18 @@ pub fn do_secp256k1_verify<A: BackendApi, S: Storage, Q: Querier>(
     ))
 }
 
-pub fn do_secp256k1_recover_pubkey<A: BackendApi, S: Storage, Q: Querier>(
-    mut env: FunctionEnvMut<Environment<A, S, Q>>,
+pub fn do_secp256k1_recover_pubkey<
+    A: BackendApi + 'static,
+    S: Storage + 'static,
+    Q: Querier + 'static,
+>(
+    mut fenv: FunctionEnvMut<Environment<A, S, Q>>,
     hash_ptr: u32,
     signature_ptr: u32,
     recover_param: u32,
 ) -> VmResult<u64> {
-    let store = env.as_store_mut();
-    let env = env.data();
+    let env = fenv.data().clone();
+    let mut store = fenv.as_store_mut();
 
     let hash = read_region(&env.memory(), &store, hash_ptr, MESSAGE_HASH_MAX_LEN)?;
     let signature = read_region(&env.memory(), &store, signature_ptr, ECDSA_SIGNATURE_LEN)?;
@@ -296,10 +300,10 @@ pub fn do_secp256k1_recover_pubkey<A: BackendApi, S: Storage, Q: Querier>(
 
     let result = secp256k1_recover_pubkey(&hash, &signature, recover_param);
     let gas_info = GasInfo::with_cost(env.gas_config.secp256k1_recover_pubkey_cost);
-    process_gas_info::<A, S, Q>(env, &mut store, gas_info)?;
+    process_gas_info::<A, S, Q>(&env, &mut store, gas_info)?;
     match result {
         Ok(pubkey) => {
-            let pubkey_ptr = write_to_contract::<A, S, Q>(env, &mut store, pubkey.as_ref())?;
+            let pubkey_ptr = write_to_contract::<A, S, Q>(&env, &mut store, pubkey.as_ref())?;
             Ok(to_low_half(pubkey_ptr))
         }
         Err(err) => match err {
@@ -314,14 +318,14 @@ pub fn do_secp256k1_recover_pubkey<A: BackendApi, S: Storage, Q: Querier>(
     }
 }
 
-pub fn do_ed25519_verify<A: BackendApi, S: Storage, Q: Querier>(
-    mut env: FunctionEnvMut<Environment<A, S, Q>>,
+pub fn do_ed25519_verify<A: BackendApi + 'static, S: Storage + 'static, Q: Querier + 'static>(
+    mut fenv: FunctionEnvMut<Environment<A, S, Q>>,
     message_ptr: u32,
     signature_ptr: u32,
     pubkey_ptr: u32,
 ) -> VmResult<u32> {
-    let store = env.as_store_mut();
-    let env = env.data();
+    let env = fenv.data().clone();
+    let mut store = fenv.as_store_mut();
 
     let message = read_region(
         &env.memory(),
@@ -339,7 +343,7 @@ pub fn do_ed25519_verify<A: BackendApi, S: Storage, Q: Querier>(
 
     let result = ed25519_verify(&message, &signature, &pubkey);
     let gas_info = GasInfo::with_cost(env.gas_config.ed25519_verify_cost);
-    process_gas_info::<A, S, Q>(env, &mut store, gas_info)?;
+    process_gas_info::<A, S, Q>(&env, &mut store, gas_info)?;
     Ok(result.map_or_else(
         |err| match err {
             CryptoError::InvalidPubkeyFormat { .. }
@@ -355,14 +359,18 @@ pub fn do_ed25519_verify<A: BackendApi, S: Storage, Q: Querier>(
     ))
 }
 
-pub fn do_ed25519_batch_verify<A: BackendApi, S: Storage, Q: Querier>(
-    mut env: FunctionEnvMut<Environment<A, S, Q>>,
+pub fn do_ed25519_batch_verify<
+    A: BackendApi + 'static,
+    S: Storage + 'static,
+    Q: Querier + 'static,
+>(
+    mut fenv: FunctionEnvMut<Environment<A, S, Q>>,
     messages_ptr: u32,
     signatures_ptr: u32,
     public_keys_ptr: u32,
 ) -> VmResult<u32> {
-    let store = env.as_store_mut();
-    let env = env.data();
+    let env = fenv.data().clone();
+    let mut store = fenv.as_store_mut();
 
     let messages = read_region(
         &env.memory(),
@@ -394,7 +402,7 @@ pub fn do_ed25519_batch_verify<A: BackendApi, S: Storage, Q: Querier>(
         env.gas_config.ed25519_batch_verify_cost
     } * signatures.len() as u64;
     let gas_info = GasInfo::with_cost(max(gas_cost, env.gas_config.ed25519_verify_cost));
-    process_gas_info::<A, S, Q>(env, &mut store, gas_info)?;
+    process_gas_info::<A, S, Q>(&env, &mut store, gas_info)?;
     Ok(result.map_or_else(
         |err| match err {
             CryptoError::BatchErr { .. }
@@ -411,12 +419,12 @@ pub fn do_ed25519_batch_verify<A: BackendApi, S: Storage, Q: Querier>(
 
 /// Prints a debug message to console.
 /// This does not charge gas, so debug printing should be disabled when used in a blockchain module.
-pub fn do_debug<A: BackendApi, S: Storage, Q: Querier>(
-    mut env: FunctionEnvMut<Environment<A, S, Q>>,
+pub fn do_debug<A: BackendApi + 'static, S: Storage + 'static, Q: Querier + 'static>(
+    mut fenv: FunctionEnvMut<Environment<A, S, Q>>,
     message_ptr: u32,
 ) -> VmResult<()> {
-    let store = env.as_store_mut();
-    let env = env.data();
+    let env = fenv.data().clone();
+    let store = fenv.as_store_mut();
 
     if env.print_debug {
         let message_data = read_region(&env.memory(), &store, message_ptr, MAX_LENGTH_DEBUG)?;
@@ -427,12 +435,12 @@ pub fn do_debug<A: BackendApi, S: Storage, Q: Querier>(
 }
 
 /// Aborts the contract and shows the given error message
-pub fn do_abort<A: BackendApi, S: Storage, Q: Querier>(
-    mut env: FunctionEnvMut<Environment<A, S, Q>>,
+pub fn do_abort<A: BackendApi + 'static, S: Storage + 'static, Q: Querier + 'static>(
+    mut fenv: FunctionEnvMut<Environment<A, S, Q>>,
     message_ptr: u32,
 ) -> VmResult<()> {
-    let store = env.as_store_mut();
-    let env = env.data();
+    let env = fenv.data().clone();
+    let store = fenv.as_store_mut();
 
     let message_data = read_region(&env.memory(), &store, message_ptr, MAX_LENGTH_ABORT)?;
     let msg = String::from_utf8_lossy(&message_data);
@@ -455,13 +463,13 @@ fn write_to_contract<A: BackendApi, S: Storage, Q: Querier>(
     Ok(target_ptr)
 }
 
-pub fn do_query_chain<A: BackendApi, S: Storage, Q: Querier>(
-    mut env: FunctionEnvMut<Environment<A, S, Q>>,
+pub fn do_query_chain<A: BackendApi + 'static, S: Storage + 'static, Q: Querier + 'static>(
+    mut fenv: FunctionEnvMut<Environment<A, S, Q>>,
 
     request_ptr: u32,
 ) -> VmResult<u32> {
-    let store = env.as_store_mut();
-    let env = env.data();
+    let env = fenv.data().clone();
+    let mut store = fenv.as_store_mut();
 
     let request = read_region(
         &env.memory(),
@@ -474,20 +482,20 @@ pub fn do_query_chain<A: BackendApi, S: Storage, Q: Querier>(
     let (result, gas_info) = env.with_querier_from_context::<_, _>(|querier| {
         Ok(querier.query_raw(&request, gas_remaining))
     })?;
-    process_gas_info::<A, S, Q>(env, &mut store, gas_info)?;
+    process_gas_info::<A, S, Q>(&env, &mut store, gas_info)?;
     let serialized = to_vec(&result?)?;
-    write_to_contract::<A, S, Q>(env, &mut store, &serialized)
+    write_to_contract::<A, S, Q>(&env, &mut store, &serialized)
 }
 
 #[cfg(feature = "iterator")]
-pub fn do_db_scan<A: BackendApi, S: Storage, Q: Querier>(
-    mut env: FunctionEnvMut<Environment<A, S, Q>>,
+pub fn do_db_scan<A: BackendApi + 'static, S: Storage + 'static, Q: Querier + 'static>(
+    mut fenv: FunctionEnvMut<Environment<A, S, Q>>,
     start_ptr: u32,
     end_ptr: u32,
     order: i32,
 ) -> VmResult<u32> {
-    let store = env.as_store_mut();
-    let env = env.data();
+    let env = fenv.data().clone();
+    let mut store = fenv.as_store_mut();
 
     let start = maybe_read_region(&env.memory(), &store, start_ptr, MAX_LENGTH_DB_KEY)?;
     let end = maybe_read_region(&env.memory(), &store, end_ptr, MAX_LENGTH_DB_KEY)?;
@@ -504,22 +512,22 @@ pub fn do_db_scan<A: BackendApi, S: Storage, Q: Querier>(
 }
 
 #[cfg(feature = "iterator")]
-pub fn do_db_next<A: BackendApi, S: Storage, Q: Querier>(
-    mut env: FunctionEnvMut<Environment<A, S, Q>>,
+pub fn do_db_next<A: BackendApi + 'static, S: Storage + 'static, Q: Querier + 'static>(
+    mut fenv: FunctionEnvMut<Environment<A, S, Q>>,
     iterator_id: u32,
 ) -> VmResult<u32> {
-    let store = env.as_store_mut();
-    let env = env.data();
+    let env = fenv.data().clone();
+    let mut store = fenv.as_store_mut();
 
     let (result, gas_info) =
         env.with_storage_from_context::<_, _>(|store| Ok(store.next(iterator_id)))?;
-    process_gas_info::<A, S, Q>(env, &mut store, gas_info)?;
+    process_gas_info::<A, S, Q>(&env, &mut store, gas_info)?;
 
     // Empty key will later be treated as _no more element_.
     let (key, value) = result?.unwrap_or_else(|| (Vec::<u8>::new(), Vec::<u8>::new()));
 
     let out_data = encode_sections(&[key, value])?;
-    write_to_contract::<A, S, Q>(env, &mut store, &out_data)
+    write_to_contract::<A, S, Q>(&env, &mut store, &out_data)
 }
 
 /// Returns the data shifted by 32 bits towards the most significant bit.
@@ -928,7 +936,7 @@ mod tests {
 
         // Note: right now we cannot differnetiate between an existent and a non-existent key
         do_db_remove(
-            FunctionEnv::new(&mut store, env).into_mut(&mut store),
+            FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store),
             key_ptr,
         )
         .unwrap();
@@ -999,11 +1007,12 @@ mod tests {
             b"eth1n48g2mjh9ezz7zjtya37wtgg5r5emr0drkwlgw",
         );
 
-        let env = FunctionEnv::new(&mut store, env).into_mut(&mut store);
-
-        let res = do_addr_validate(env, source_ptr1).unwrap();
+        let fenv = FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store);
+        let res = do_addr_validate(fenv, source_ptr1).unwrap();
         assert_eq!(res, 0);
-        let res = do_addr_validate(env, source_ptr2).unwrap();
+
+        let fenv = FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store);
+        let res = do_addr_validate(fenv, source_ptr2).unwrap();
         assert_eq!(res, 0);
     }
 
@@ -1017,23 +1026,26 @@ mod tests {
         let source_ptr3 = write_data(&mut store,&env, b"addressexceedingaddressspacesuperlongreallylongiamensuringthatitislongerthaneverything"); // too long
         let source_ptr4 = write_data(&mut store, &env, b"fooBar"); // Not normalized. The definition of normalized is chain-dependent but the MockApi requires lower case.
 
-        let fenv = FunctionEnv::new(&mut store, env).into_mut(&mut store);
+        let fenv = FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store);
 
         let res = do_addr_validate(fenv, source_ptr1).unwrap();
         assert_ne!(res, 0);
         let err = String::from_utf8(force_read(&env, &mut store, res)).unwrap();
         assert_eq!(err, "Input is not valid UTF-8");
 
+        let fenv = FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store);
         let res = do_addr_validate(fenv, source_ptr2).unwrap();
         assert_ne!(res, 0);
         let err = String::from_utf8(force_read(&env, &mut store, res)).unwrap();
         assert_eq!(err, "Input is empty");
 
+        let fenv = FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store);
         let res = do_addr_validate(fenv, source_ptr3).unwrap();
         assert_ne!(res, 0);
         let err = String::from_utf8(force_read(&env, &mut store, res)).unwrap();
         assert_eq!(err, "Invalid input: human address too long");
 
+        let fenv = FunctionEnv::new(&mut store, env.clone()).into_mut(&mut store);
         let res = do_addr_validate(fenv, source_ptr4).unwrap();
         assert_ne!(res, 0);
         let err = String::from_utf8(force_read(&env, &mut store, res)).unwrap();

@@ -620,7 +620,7 @@ mod tests {
 
     #[test]
     fn is_storage_readonly_defaults_to_true() {
-        let (env, _instance, mut store) = make_instance(TESTING_GAS_LIMIT);
+        let (env, _instance, mut _store) = make_instance(TESTING_GAS_LIMIT);
         leave_default_data(&env);
 
         assert!(env.is_storage_readonly());

@@ -25,9 +25,7 @@ struct Region {
 }
 
 unsafe impl ValueType for Region {
-    fn zero_padding_bytes(&self, bytes: &mut [std::mem::MaybeUninit<u8>]) {
-        todo!()
-    }
+    fn zero_padding_bytes(&self, _bytes: &mut [std::mem::MaybeUninit<u8>]) {}
 }
 
 /// Expects a (fixed size) Region struct at ptr, which is read. This links to the
@@ -151,7 +149,7 @@ fn get_region(
             validate_region(&region)?;
             Ok(region)
         }
-        Err(e) => Err(CommunicationError::deref_err(
+        Err(_e) => Err(CommunicationError::deref_err(
             ptr,
             "Could not dereference this pointer to a Region",
         )),
@@ -188,7 +186,7 @@ fn set_region(
 ) -> CommunicationResult<()> {
     let view = memory.view(store);
     let wptr = WasmPtr::<Region>::new(offset);
-    wptr.deref(&view).write(data).map_err(|e| {
+    wptr.deref(&view).write(data).map_err(|_e| {
         CommunicationError::deref_err(offset, "Could not dereference this pointer to a Region")
     })?;
     Ok(())

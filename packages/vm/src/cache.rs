@@ -380,7 +380,6 @@ mod tests {
     use std::fs::OpenOptions;
     use std::io::Write;
     use tempfile::TempDir;
-    use wasmer::Store;
 
     const TESTING_GAS_LIMIT: u64 = 500_000_000_000; // ~0.5ms
     const TESTING_MEMORY_LIMIT: Size = Size::mebi(16);
@@ -581,8 +580,6 @@ mod tests {
 
     #[test]
     fn get_instance_finds_cached_modules_and_stores_to_memory() {
-        let store = Store::default();
-
         let cache = unsafe { Cache::new(make_testing_options()).unwrap() };
         let checksum = cache.save_wasm(CONTRACT).unwrap();
         let backend1 = mock_backend(&[]);
@@ -803,8 +800,6 @@ mod tests {
 
     #[test]
     fn use_multiple_cached_instances_of_same_contract() {
-        let store = Store::default();
-
         let cache = unsafe { Cache::new(make_testing_options()).unwrap() };
         let checksum = cache.save_wasm(CONTRACT).unwrap();
 
@@ -859,8 +854,6 @@ mod tests {
 
     #[test]
     fn resets_gas_when_reusing_instance() {
-        let store = Store::default();
-
         let cache = unsafe { Cache::new(make_testing_options()).unwrap() };
         let checksum = cache.save_wasm(CONTRACT).unwrap();
 
@@ -1018,8 +1011,6 @@ mod tests {
 
     #[test]
     fn pin_unpin_works() {
-        let store = Store::default();
-
         let cache = unsafe { Cache::new(make_testing_options()).unwrap() };
         let checksum = cache.save_wasm(CONTRACT).unwrap();
 

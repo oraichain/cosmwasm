@@ -3,8 +3,7 @@ use std::ptr::NonNull;
 use std::sync::Mutex;
 
 use wasmer::{
-    AsStoreMut, Exports, Function, FunctionEnv, Imports, Instance as WasmerInstance, Module, Store,
-    Value,
+    Exports, Function, FunctionEnv, Imports, Instance as WasmerInstance, Module, Store, Value,
 };
 
 use crate::backend::{Backend, BackendApi, Querier, Storage};
@@ -21,7 +20,7 @@ use crate::imports::{
 use crate::imports::{do_db_next, do_db_scan};
 use crate::memory::{read_region, write_region};
 use crate::size::Size;
-use crate::wasm_backend::{compile, make_compile_time_store};
+use crate::wasm_backend::compile;
 
 #[derive(Copy, Clone, Debug)]
 pub struct GasReport {
@@ -67,7 +66,7 @@ where
         options: InstanceOptions,
         memory_limit: Option<Size>,
     ) -> VmResult<Self> {
-        let (module, mut store) = compile(code, memory_limit, &[])?;
+        let (module, store) = compile(code, memory_limit, &[])?;
 
         Instance::from_module(
             store,
@@ -243,12 +242,13 @@ where
         );
 
         let instance_ptr = NonNull::from(wasmer_instance.as_ref());
-        env.as_ref(&store).set_wasmer_instance(Some(instance_ptr));
-        env.as_ref(&store).set_gas_left(&mut store, gas_limit);
-        env.as_ref(&store).move_in(backend.storage, backend.querier);
+        let env = env.as_ref(&store).clone();
+        env.set_wasmer_instance(Some(instance_ptr));
+        env.set_gas_left(&mut store, gas_limit);
+        env.move_in(backend.storage, backend.querier);
         let instance = Instance {
             _inner: wasmer_instance,
-            env: env.as_ref(&store).clone(),
+            env,
             store,
         };
         Ok(instance)
@@ -287,7 +287,7 @@ where
     /// Wasm memory always grows in 64 KiB steps (pages) and can never shrink
     /// (https://github.com/WebAssembly/design/issues/1300#issuecomment-573867836).
     pub fn memory_pages(&self) -> usize {
-        todo!()
+        self.env.memory().view(&self.store).size().0 as _
     }
 
     /// Returns the currently remaining gas.
@@ -376,7 +376,7 @@ where
 /// This exists only to be exported through `internals` for use by crates that are
 /// part of Cosmwasm.
 pub fn instance_from_module<A, S, Q>(
-    mut store: Store,
+    store: Store,
     module: &Module,
     backend: Backend<A, S, Q>,
     gas_limit: u64,
@@ -472,6 +472,7 @@ mod tests {
         let (instance_options, memory_limit) = mock_instance_options();
         let (module, mut store) = compile(&wasm, memory_limit, &[]).unwrap();
 
+        #[derive(Clone)]
         struct MyEnv {
             // This can be mutated across threads safely. We initialize it as `false`
             // and let our imported fn switch it to `true` to confirm it works.
@@ -482,18 +483,15 @@ mod tests {
             called: Arc::new(AtomicBool::new(false)),
         };
 
-        let fun = Function::new_typed_with_env(
-            &mut store,
-            &FunctionEnv::new(&mut store, my_env),
-            |env: FunctionEnvMut<MyEnv>| {
-                env.data().called.store(true, Ordering::Relaxed);
-            },
-        );
+        let fenv = FunctionEnv::new(&mut store, my_env.clone());
+        let fun = Function::new_typed_with_env(&mut store, &fenv, |env: FunctionEnvMut<MyEnv>| {
+            env.data().called.store(true, Ordering::Relaxed);
+        });
         let mut exports = Exports::new();
         exports.insert("bar", fun);
         let mut extra_imports = HashMap::new();
         extra_imports.insert("foo", exports);
-        let instance = Instance::from_module(
+        let mut instance = Instance::from_module(
             store,
             &module,
             backend,
@@ -504,8 +502,7 @@ mod tests {
         )
         .unwrap();
 
-        let main = instance._inner.exports.get_function("main").unwrap();
-        main.call(&mut store, &[]).unwrap();
+        instance.call_function0("main", &[]).unwrap();
 
         assert!(my_env.called.load(Ordering::Relaxed));
     }
@@ -521,8 +518,6 @@ mod tests {
 
     #[test]
     fn call_function1_works() {
-        let store = Store::default();
-
         let mut instance = mock_instance(CONTRACT, &[]);
 
         // can call function few times
@@ -603,8 +598,6 @@ mod tests {
 
     #[test]
     fn errors_in_imports() {
-        let store = Store::default();
-
         // set up an instance that will experience an error in an import
         let error_message = "Api failed intentionally";
         let mut instance = mock_instance_with_failing_api(CONTRACT, &[], error_message);
@@ -654,8 +647,6 @@ mod tests {
 
     #[test]
     fn memory_pages_returns_min_memory_size_by_default() {
-        let store = Store::default();
-
         // min: 0 pages, max: none
         let wasm = wat::parse_str(
             r#"(module
@@ -695,7 +686,6 @@ mod tests {
 
     #[test]
     fn memory_pages_grows_with_usage() {
-        let store = Store::default();
         let mut instance = mock_instance(CONTRACT, &[]);
 
         assert_eq!(instance.memory_pages(), 17);
@@ -763,7 +753,6 @@ mod tests {
 
     #[test]
     fn with_storage_works() {
-        let store = Store::default();
         let mut instance = mock_instance(CONTRACT, &[]);
 
         // initial check
@@ -795,7 +784,7 @@ mod tests {
     #[should_panic]
     fn with_storage_safe_for_panic() {
         // this should fail with the assertion, but not cause a double-free crash (issue #59)
-        let store = Store::default();
+
         let mut instance = mock_instance(CONTRACT, &[]);
         instance
             .with_storage::<_, ()>(|_store| panic!("trigger failure"))
@@ -804,8 +793,6 @@ mod tests {
 
     #[test]
     fn with_querier_works_readonly() {
-        let store = Store::default();
-
         let rich_addr = String::from("foobar");
         let rich_balance = vec![coin(10000, "gold"), coin(8000, "silver")];
         let mut instance = mock_instance_with_balances(CONTRACT, &[(&rich_addr, &rich_balance)]);
@@ -861,8 +848,6 @@ mod tests {
     /// This is needed for writing intagration tests in which the balance of a contract changes over time
     #[test]
     fn with_querier_allows_updating_balances() {
-        let store = Store::default();
-
         let rich_addr = String::from("foobar");
         let rich_balance1 = vec![coin(10000, "gold"), coin(500, "silver")];
         let rich_balance2 = vec![coin(10000, "gold"), coin(8000, "silver")];
@@ -937,8 +922,6 @@ mod tests {
 
     #[test]
     fn contract_deducts_gas_execute() {
-        let mut store = Store::default();
-
         let mut instance = mock_instance(CONTRACT, &[]);
 
         // init contract
@@ -962,8 +945,6 @@ mod tests {
 
     #[test]
     fn contract_enforces_gas_limit() {
-        let mut store = Store::default();
-
         let mut instance = mock_instance_with_gas_limit(CONTRACT, 20_000);
 
         // init contract
@@ -975,8 +956,6 @@ mod tests {
 
     #[test]
     fn query_works_with_gas_metering() {
-        let mut store = Store::default();
-
         let mut instance = mock_instance(CONTRACT, &[]);
 
         // init contract
