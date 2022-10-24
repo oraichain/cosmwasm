@@ -575,12 +575,16 @@ where
     Q: Querier + 'static,
 {
     let mut arg_region_ptrs = Vec::<Value>::with_capacity(args.len());
+
     for arg in args {
         let region_ptr = instance.allocate(arg.len())?;
+        println!("method {:?}", name);
         instance.write_memory(region_ptr, arg)?;
         arg_region_ptrs.push(region_ptr.into());
     }
+
     let result = instance.call_function1(name, &arg_region_ptrs)?;
+
     let res_region_ptr = ref_to_u32(&result)?;
     let data = instance.read_memory(res_region_ptr, result_max_length)?;
     // free return value in wasm (arguments were freed in wasm code)

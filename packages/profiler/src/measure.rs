@@ -5,7 +5,7 @@ use std::time::{self, Duration};
 use crate::code_blocks::{BlockId, BlockStore};
 use crate::utils::InsertPush as _;
 
-#[derive(wasmer::WasmerEnv, Default, Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct Measurements {
     started: HashMap<(u32, u32), VecDeque<time::Instant>>,
     pub taken: HashMap<BlockId, VecDeque<time::Duration>>,

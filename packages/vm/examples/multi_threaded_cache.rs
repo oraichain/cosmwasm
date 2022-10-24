@@ -21,8 +21,8 @@ const MEMORY_CACHE_SIZE: Size = Size::mebi(200);
 
 static CONTRACT: &[u8] = include_bytes!("../testdata/hackatom.wasm");
 
-const SAVE_WASM_THREADS: usize = 32;
-const INSTANTIATION_THREADS: usize = 2048;
+const SAVE_WASM_THREADS: usize = 1;
+const INSTANTIATION_THREADS: usize = 1;
 const THREADS: usize = SAVE_WASM_THREADS + INSTANTIATION_THREADS;
 
 pub fn main() {

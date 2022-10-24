@@ -259,8 +259,7 @@ where
         backend: Backend<A, S, Q>,
         options: InstanceOptions,
     ) -> VmResult<Instance<A, S, Q>> {
-        let store = Store::default();
-        let module = self.get_module(checksum)?;
+        let (module, store) = self.get_module(checksum)?;
         let instance = Instance::from_module(
             store,
             &module,
@@ -276,18 +275,19 @@ where
     /// Returns a module tied to a previously saved Wasm.
     /// Depending on availability, this is either generated from a memory cache, file system cache or Wasm code.
     /// This is part of `get_instance` but pulled out to reduce the locking time.
-    fn get_module(&self, checksum: &Checksum) -> VmResult<wasmer::Module> {
+    fn get_module(&self, checksum: &Checksum) -> VmResult<(wasmer::Module, Store)> {
         let mut cache = self.inner.lock().unwrap();
+        let store = Store::default();
         // Try to get module from the pinned memory cache
         if let Some(module) = cache.pinned_memory_cache.load(checksum)? {
             cache.stats.hits_pinned_memory_cache += 1;
-            return Ok(module);
+            return Ok((module, store));
         }
 
         // Get module from memory cache
         if let Some(module) = cache.memory_cache.load(checksum)? {
             cache.stats.hits_memory_cache += 1;
-            return Ok(module.module);
+            return Ok((module.module, store));
         }
 
         // Get module from file system cache
@@ -298,7 +298,7 @@ where
             cache
                 .memory_cache
                 .store(checksum, module.clone(), module_size)?;
-            return Ok(module);
+            return Ok((module, store));
         }
 
         // Re-compile module from wasm
@@ -308,13 +308,13 @@ where
         // stored the old module format.
         let wasm = self.load_wasm_with_path(&cache.wasm_path, checksum)?;
         cache.stats.misses += 1;
-        let (module, _store) = compile(&wasm, Some(cache.instance_memory_limit), &[])?;
+        let (module, store) = compile(&wasm, Some(cache.instance_memory_limit), &[])?;
         cache.fs_cache.store(checksum, &module)?;
         let module_size = 1;
         cache
             .memory_cache
             .store(checksum, module.clone(), module_size)?;
-        Ok(module)
+        Ok((module, store))
     }
 }
 

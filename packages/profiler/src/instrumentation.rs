@@ -9,12 +9,12 @@ use cosmwasm_vm::{
 };
 use loupe::MemoryUsage;
 use wasmer::{
-    internals::WithEnv, wasmparser::Operator, Exports, Function, FunctionMiddleware, HostFunction,
-    LocalFunctionIndex, ModuleMiddleware, WasmerEnv,
+    wasmparser::Operator, Exports, Function, FunctionMiddleware, HostFunction, LocalFunctionIndex,
+    ModuleMiddleware,
 };
 use wasmer_types::{FunctionIndex, ImportIndex};
 
-use crate::{code_blocks::BlockStore, operators::OperatorSymbol};
+use crate::{code_blocks::BlockStore, operators::OperatorSymbol, Env};
 
 pub enum Module<'d> {
     Path(&'d Path),
@@ -32,7 +32,7 @@ impl<'d> Module<'d> {
         Self::Bytes(bytes)
     }
 
-    pub fn instrument<Env, F1, F2>(
+    pub fn instrument<F1, F2>(
         &self,
         block_store: Arc<Mutex<BlockStore>>,
         env: Env,
@@ -40,9 +40,8 @@ impl<'d> Module<'d> {
         take_measurement_fn: F2,
     ) -> InstrumentedInstance
     where
-        Env: WasmerEnv + 'static,
-        F1: HostFunction<(u32, u32), (), WithEnv, Env>,
-        F2: HostFunction<(u32, u32, u64), (), WithEnv, Env>,
+        F1: HostFunction<(u32, u32), (), (), Env>,
+        F2: HostFunction<(u32, u32, u64), (), (), Env>,
     {
         let profiling = Arc::new(Profiling::new(block_store));
 
@@ -59,19 +58,18 @@ impl<'d> Module<'d> {
         let wasm = walrus_module.emit_wasm();
         //let wasmer_module = wasmer::Module::new(&store, wasm).unwrap();
 
-        let wasmer_module =
+        let (module, store) =
             cosmwasm_vm::internals::compile(&wasm, None, &[profiling.clone()]).unwrap();
-        let store = wasmer_module.store();
 
         // Mock imports that do nothing.
         let mut fns_to_import = Exports::new();
         fns_to_import.insert(
             "start_measurement",
-            Function::new_native_with_env(store, env.clone(), start_measurement_fn),
+            Function::new_native_with_env(&mut store, env.clone(), start_measurement_fn),
         );
         fns_to_import.insert(
             "take_measurement",
-            Function::new_native_with_env(store, env, take_measurement_fn),
+            Function::new_native_with_env(&mut store, env, take_measurement_fn),
         );
 
         let backend = Backend {
@@ -80,7 +78,8 @@ impl<'d> Module<'d> {
             querier: MockQuerier::new(&[]),
         };
         let instance = cosmwasm_vm::internals::instance_from_module(
-            &wasmer_module,
+            store,
+            &module,
             backend,
             999999999,
             false,
@@ -279,7 +278,7 @@ mod tests {
     use crate::code_blocks::CodeBlock;
 
     use std::sync::Arc;
-    use wasmer::{wat2wasm, WasmerEnv};
+    use wasmer::wat2wasm;
 
     const WAT: &[u8] = br#"
     (module
@@ -305,7 +304,7 @@ mod tests {
         instance: InstrumentedInstance,
     }
 
-    #[derive(Debug, Clone, WasmerEnv)]
+    #[derive(Debug, Clone)]
     struct FixtureEnv {
         start_calls: Arc<Mutex<Vec<(u32, u32)>>>,
         end_calls: Arc<Mutex<Vec<(u32, u32, u64)>>>,
