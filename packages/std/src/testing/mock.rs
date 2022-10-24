@@ -902,7 +902,7 @@ mod tests {
     #[should_panic(expected = "length not correct")]
     fn addr_humanize_input_length() {
         let api = MockApi::default();
-        let input = CanonicalAddr(Binary(vec![61; 11]));
+        let input = CanonicalAddr::from(vec![61; 11]);
         api.addr_humanize(&input).unwrap();
     }
 
@@ -1550,7 +1550,7 @@ mod tests {
         });
         match result {
             SystemResult::Ok(ContractResult::Err(err)) => {
-                assert_eq!(err, "Error parsing into type cosmwasm_std::mock::tests::wasm_querier_works::{{closure}}::MyMsg: Invalid type")
+                assert_eq!(err, "Error parsing into type cosmwasm_std::testing::mock::tests::wasm_querier_works::{{closure}}::MyMsg: Invalid type")
             }
             res => panic!("Unexpected result: {:?}", res),
         }

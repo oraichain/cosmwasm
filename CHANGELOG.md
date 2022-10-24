@@ -6,6 +6,81 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- cosmwasm-std: Add `From` implementations to convert between
+  `CanonicalAddr`/`Binary` as well as `CanonicalAddr`/`HexBinary` ([#1463]).
+- cosmwasm-std: Add `From` implementations to convert `u8` arrays to
+  `CanonicalAddr` ([#1463]).
+- cosmwasm-std: Implement `PartialEq` between `CanonicalAddr` and
+  `HexBinary`/`Binary` ([#1463]).
+
+[#1463]: https://github.com/CosmWasm/cosmwasm/pull/1463
+
+### Changed
+
+- all: Bump a few dependency versions to make the codebase compile with
+  `-Zminimal-versions` ([#1465]).
+
+[#1465]: https://github.com/CosmWasm/cosmwasm/pull/1465
+
+## [1.1.5] - 2022-10-17
+
+### Added
+
+- cosmwasm-std: Add `wrapping_add`, `wrapping_sub`, `wrapping_mul` and
+  `wrapping_pow` to `Uint256`/`Uint512`.
+- cosmwasm-schema: Better error messaging when attempting to compile schema
+  generator for `wasm32`
+- cosmwasm-vm: In the `secp256k1_verify`, `secp256k1_recover_pubkey`,
+  `ed25519_verify` and `ed25519_batch_verify` import implementations we now exit
+  early if the gas left is not sufficient to perform the operation.
+
+### Changed
+
+- cosmwasm-std: Remove `non_exhaustive` from IBC types `IbcChannelOpenMsg`,
+  `IbcChannelConnectMsg` and `IbcChannelCloseMsg` in order to allow exhaustive
+  matching over the possible scenarios without an unused fallback case
+  ([#1449]).
+
+[#1449]: https://github.com/CosmWasm/cosmwasm/pull/1449
+
+## [1.1.4] - 2022-10-03
+
+### Fixed
+
+- cosmwasm-schema: Properly analyze schemas generated for `untagged` enums
+
+## [1.1.3] - 2022-09-29
+
+### Fixed
+
+- cosmwasm-schema: `IntegrityError` is now public
+
+## [1.1.2] - 2022-09-19
+
+### Added
+
+- cosmwasm-std: Add testing macro `assert_approx_eq!` for comparing two integers
+  to be relatively close to each other ([#1417]).
+- cosmwasm-std: Add `HexBinary` which is like `Binary` but encodes to hex
+  strings in JSON. Add `StdError::InvalidHex` error case. ([#1425])
+
+[#1417]: https://github.com/CosmWasm/cosmwasm/issues/1417
+[#1425]: https://github.com/CosmWasm/cosmwasm/pull/1425
+
+### Fixed
+
+- cosmwasm-vm: Bump `MODULE_SERIALIZATION_VERSION` to "v4" because the module
+  serialization format changed between Wasmer 2.2 and 2.3 ([#1426]).
+- cosmwasm-schema: The `QueryResponses` derive macro now supports `QueryMsg`s
+  with generics. ([#1429])
+
+[#1426]: https://github.com/CosmWasm/cosmwasm/issues/1426
+[#1429]: https://github.com/CosmWasm/cosmwasm/pull/1429
+
+## [1.1.1] - 2022-09-15
+
 ### Fixed
 
 - cosmwasm-schema: Using `QueryResponses` with a `QueryMsg` containing a
@@ -1439,7 +1514,12 @@ Some main points:
 
 All future Changelog entries will reference this base
 
-[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v1.1.0...HEAD
+[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v1.1.5...HEAD
+[1.1.5]: https://github.com/CosmWasm/cosmwasm/compare/v1.1.4...v1.1.5
+[1.1.4]: https://github.com/CosmWasm/cosmwasm/compare/v1.1.3...v1.1.4
+[1.1.3]: https://github.com/CosmWasm/cosmwasm/compare/v1.1.2...v1.1.3
+[1.1.2]: https://github.com/CosmWasm/cosmwasm/compare/v1.1.1...v1.1.2
+[1.1.1]: https://github.com/CosmWasm/cosmwasm/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/CosmWasm/cosmwasm/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/CosmWasm/cosmwasm/compare/v1.0.0-rc.0...v1.0.0
 [1.0.0-rc.0]:

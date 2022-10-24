@@ -9,6 +9,7 @@ mod coins;
 mod conversion;
 mod deps;
 mod errors;
+mod hex_binary;
 mod ibc;
 mod import_helpers;
 #[cfg(feature = "iterator")]
@@ -33,6 +34,7 @@ pub use crate::errors::{
     OverflowError, OverflowOperation, RecoverPubkeyError, StdError, StdResult, SystemError,
     VerificationError,
 };
+pub use crate::hex_binary::HexBinary;
 #[cfg(feature = "stargate")]
 pub use crate::ibc::{
     Ibc3ChannelOpenResponse, IbcAcknowledgement, IbcBasicResponse, IbcChannel, IbcChannelCloseMsg,
@@ -97,27 +99,8 @@ pub use crate::imports::{ExternalApi, ExternalQuerier, ExternalStorage};
 
 // Exposed for testing only
 // Both unit tests and integration tests are compiled to native code, so everything in here does not need to compile to Wasm.
-
 #[cfg(not(target_arch = "wasm32"))]
-mod mock;
-#[cfg(not(target_arch = "wasm32"))]
-pub mod testing {
-    #[cfg(feature = "staking")]
-    pub use crate::mock::StakingQuerier;
-    pub use crate::mock::{
-        digit_sum, mock_dependencies, mock_dependencies_with_balance,
-        mock_dependencies_with_balances, mock_env, mock_info, mock_wasmd_attr, riffle_shuffle,
-        BankQuerier, MockApi, MockQuerier, MockQuerierCustomHandlerResult, MockStorage,
-        MOCK_CONTRACT_ADDR,
-    };
-    #[cfg(feature = "stargate")]
-    pub use crate::mock::{
-        mock_ibc_channel, mock_ibc_channel_close_confirm, mock_ibc_channel_close_init,
-        mock_ibc_channel_connect_ack, mock_ibc_channel_connect_confirm, mock_ibc_channel_open_init,
-        mock_ibc_channel_open_try, mock_ibc_packet_ack, mock_ibc_packet_recv,
-        mock_ibc_packet_timeout,
-    };
-}
+pub mod testing;
 
 // Re-exports
 
