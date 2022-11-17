@@ -6,6 +6,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.1.6] - 2022-11-16
+
 ### Added
 
 - cosmwasm-std: Add `From` implementations to convert between
@@ -21,8 +23,8 @@ and this project adheres to
 
 - all: Bump a few dependency versions to make the codebase compile with
   `-Zminimal-versions` ([#1465]).
-- cosmwasm-profiler: Package was removed 🪦. It served its job showing us that we
-  cannot properly measure different runtimes for differet Wasm opcodes.
+- cosmwasm-profiler: Package was removed 🪦. It served its job showing us that
+  we cannot properly measure different runtimes for differet Wasm opcodes.
 - cosmwasm-schema: schema generation is now locked to produce strictly
   `draft-07` schemas
 - cosmwasm-schema: `QueryResponses` derive now sets the `JsonSchema` trait bound
@@ -1521,7 +1523,8 @@ Some main points:
 
 All future Changelog entries will reference this base
 
-[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v1.1.5...HEAD
+[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v1.1.6...HEAD
+[1.1.6]: https://github.com/CosmWasm/cosmwasm/compare/v1.1.5...v1.1.6
 [1.1.5]: https://github.com/CosmWasm/cosmwasm/compare/v1.1.4...v1.1.5
 [1.1.4]: https://github.com/CosmWasm/cosmwasm/compare/v1.1.3...v1.1.4
 [1.1.3]: https://github.com/CosmWasm/cosmwasm/compare/v1.1.2...v1.1.3
