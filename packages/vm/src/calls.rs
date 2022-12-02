@@ -560,10 +560,11 @@ where
     // version 4 has old env and info struct
     let response = if version == 4 {
         // this can be called from vm go, migrate in old version still require [env,info,msg]
+        // but we just give an empty MessageInfo to satisfy the old code
         call_raw(
             instance,
             "migrate",
-            &[&get_old_env(env), &get_old_info(info), msg],
+            &[&get_old_env(env), br#"{"sent_funds":[],"sender":""}"#, msg],
             read_limits::RESULT_MIGRATE,
         )
     } else {

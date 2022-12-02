@@ -5,7 +5,8 @@ use clap::{App, Arg};
 use cosmwasm_std::{coins, Empty};
 use cosmwasm_vm::testing::{mock_backend, mock_env, mock_info, MockApi};
 use cosmwasm_vm::{
-    call_execute, call_instantiate, call_query, Cache, CacheOptions, InstanceOptions, Size,
+    call_execute, call_instantiate, call_migrate, call_query, Cache, CacheOptions, InstanceOptions,
+    Size,
 };
 use std::fs::File;
 use std::io::prelude::*;
@@ -57,6 +58,10 @@ pub fn run_contract(src: &str) {
     let contract_result =
         call_execute::<_, _, _, Empty>(&mut instance, &env, &mock_info("owner", &[]), msg).unwrap();
     println!("Done excuting contract with sub msg: {:?}", contract_result);
+
+    let msg = br#"{"test_field":"nothing"}"#;
+    let contract_result = call_migrate::<_, _, _, Empty>(&mut instance, &env, msg).unwrap();
+    println!("Done migrating contract with msg: {:?}", contract_result);
 
     let msg = br#"{"all_tokens":{}}"#;
     let contract_result = call_query::<_, _, _>(&mut instance, &env, msg).unwrap();
