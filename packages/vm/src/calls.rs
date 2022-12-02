@@ -555,12 +555,32 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
-    call_raw(
-        instance,
-        "migrate",
-        &[env, msg],
-        read_limits::RESULT_MIGRATE,
-    )
+    let version = instance.get_interface_version();
+
+    // version 4 has old env and info struct
+    let response = if version == 4 {
+        // this can be called from vm go, migrate in old version still require [env,info,msg]
+        call_raw(
+            instance,
+            "migrate",
+            &[&get_old_env(env), &get_old_info(info), msg],
+            read_limits::RESULT_MIGRATE,
+        )
+    } else {
+        call_raw(
+            instance,
+            "migrate",
+            &[env, msg],
+            read_limits::RESULT_MIGRATE,
+        )
+    };
+
+    // version 4 & 5 has old response struct
+    if version < 6 {
+        response.map(get_new_response)
+    } else {
+        response
+    }
 }
 
 /// Calls Wasm export "sudo" and returns raw data from the contract.
