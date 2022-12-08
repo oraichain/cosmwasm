@@ -798,6 +798,7 @@ mod tests {
     use cosmwasm_std::{coins, Empty};
 
     static CONTRACT: &[u8] = include_bytes!("../testdata/hackatom.wasm");
+    static CYBERPUNK: &[u8] = include_bytes!("../testdata/cyberpunk.wasm");
 
     #[test]
     fn call_instantiate_works() {
@@ -828,6 +829,70 @@ mod tests {
         call_execute::<_, _, _, Empty>(&mut instance, &mock_env(), &info, msg)
             .unwrap()
             .unwrap();
+    }
+
+    #[test]
+    fn call_execute_runs_out_of_gas() {
+        let mut instance = mock_instance(CYBERPUNK, &[]);
+
+        // init
+        let info = mock_info("creator", &[]);
+        call_instantiate::<_, _, _, Empty>(&mut instance, &mock_env(), &info, br#"{}"#)
+            .unwrap()
+            .unwrap();
+
+        // execute
+        let info = mock_info("looper", &[]);
+        let msg = br#"{"cpu_loop":{}}"#;
+        let err =
+            call_execute::<_, _, _, Empty>(&mut instance, &mock_env(), &info, msg).unwrap_err();
+        assert!(matches!(err, VmError::GasDepletion {}));
+    }
+
+    #[test]
+    fn call_execute_handles_panic() {
+        let mut instance = mock_instance(CYBERPUNK, &[]);
+
+        let info = mock_info("creator", &[]);
+        call_instantiate::<_, _, _, Empty>(&mut instance, &mock_env(), &info, br#"{}"#)
+            .unwrap()
+            .unwrap();
+
+        // execute
+        let info = mock_info("troll", &[]);
+        let msg = br#"{"panic":{}}"#;
+        let err =
+            call_execute::<_, _, _, Empty>(&mut instance, &mock_env(), &info, msg).unwrap_err();
+        match err {
+            VmError::RuntimeErr { msg } => {
+                assert!(msg.contains(
+                    "RuntimeError: Aborted: panicked at 'This page intentionally faulted'"
+                ))
+            }
+            err => panic!("Unexpected error: {:?}", err),
+        }
+    }
+
+    #[test]
+    fn call_execute_handles_unreachable() {
+        let mut instance = mock_instance(CYBERPUNK, &[]);
+
+        let info = mock_info("creator", &[]);
+        call_instantiate::<_, _, _, Empty>(&mut instance, &mock_env(), &info, br#"{}"#)
+            .unwrap()
+            .unwrap();
+
+        // execute
+        let info = mock_info("troll", &[]);
+        let msg = br#"{"unreachable":{}}"#;
+        let err =
+            call_execute::<_, _, _, Empty>(&mut instance, &mock_env(), &info, msg).unwrap_err();
+        match err {
+            VmError::RuntimeErr { msg } => {
+                assert!(msg.contains("RuntimeError: unreachable"))
+            }
+            err => panic!("Unexpected error: {:?}", err),
+        }
     }
 
     #[test]
