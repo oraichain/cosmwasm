@@ -382,3 +382,4 @@ which wraps a `Querier` and exposes a lot of convenience methods that just use
 
 You can read a longer explanation of the
 [`Querier` design in our docs](https://docs.cosmwasm.com/0.13/architecture/query.html).
+
