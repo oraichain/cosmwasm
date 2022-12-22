@@ -13,17 +13,26 @@ and this project adheres to
   dependency. This makes the contract incompatible with chains running versions
   of CosmWasm earlier than 1.2.0 ([#1481]).
 - cosmwasm-std: Add `instantiate2_address` which allows calculating the
-  predictable addresses for `MsgInstantiateContract2` ([#1437]).
+  predictable addresses for `MsgInstantiateContract2` ([#1437], [#1554]).
+- cosmwasm-std: Add `WasmMsg::Instantiate2` (requires `cosmwasm_1_2`, see
+  `GovMsg::VoteWeighted` above) to instantiate contracts at a predictable
+  address ([#1436], [#1554])).
 - cosmwasm-schema: In contracts, `cosmwasm schema` will now output a separate
   JSON Schema file for each entrypoint in the `raw` subdirectory ([#1478],
   [#1533]).
 - cosmwasm-std: Upgrade `serde-json-wasm` dependency to 0.5.0 which adds map
   support to `to_vec`/`to_binary` and friends.
+- cosmwasm-std: Implement `AsRef<[u8]>` for `Binary` and `HexBinary` ([#1550]).
+- cosmwasm-std: Add constructor `SupplyResponse::new` ([#1552]).
 
+[#1436]: https://github.com/CosmWasm/cosmwasm/issues/1436
 [#1437]: https://github.com/CosmWasm/cosmwasm/issues/1437
 [#1481]: https://github.com/CosmWasm/cosmwasm/pull/1481
 [#1478]: https://github.com/CosmWasm/cosmwasm/pull/1478
 [#1533]: https://github.com/CosmWasm/cosmwasm/pull/1533
+[#1550]: https://github.com/CosmWasm/cosmwasm/issues/1550
+[#1552]: https://github.com/CosmWasm/cosmwasm/pull/1552
+[#1554]: https://github.com/CosmWasm/cosmwasm/pull/1554
 
 ### Changed
 
