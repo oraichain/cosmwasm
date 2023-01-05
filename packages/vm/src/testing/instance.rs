@@ -62,6 +62,8 @@ pub fn mock_instance_with_balances(
     )
 }
 
+/// Creates an instance from the given Wasm bytecode.
+/// The gas limit is measured in [CosmWasm gas](https://github.com/CosmWasm/cosmwasm/blob/main/docs/GAS.md).
 pub fn mock_instance_with_gas_limit(
     wasm: &[u8],
     gas_limit: u64,
@@ -86,6 +88,7 @@ pub struct MockInstanceOptions<'a> {
 
     // instance
     pub available_capabilities: HashSet<String>,
+    /// Gas limit measured in [CosmWasm gas](https://github.com/CosmWasm/cosmwasm/blob/main/docs/GAS.md).
     pub gas_limit: u64,
     pub print_debug: bool,
     /// Memory limit in bytes. Use a value that is divisible by the Wasm page size 65536, e.g. full MiBs.
@@ -95,7 +98,7 @@ pub struct MockInstanceOptions<'a> {
 impl MockInstanceOptions<'_> {
     fn default_capabilities() -> HashSet<String> {
         #[allow(unused_mut)]
-        let mut out = capabilities_from_csv("iterator,staking,cosmwasm_1_1");
+        let mut out = capabilities_from_csv("iterator,staking,cosmwasm_1_1,cosmwasm_1_2");
         #[cfg(feature = "stargate")]
         out.insert("stargate".to_string());
         out

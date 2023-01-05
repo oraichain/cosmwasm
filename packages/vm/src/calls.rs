@@ -1,9 +1,10 @@
 use serde::de::DeserializeOwned;
-use serde::Serialize;
+use serde::Deserialize;
 use wasmer::Val;
 
 use cosmwasm_std::{
-    Coin, ContractInfo, ContractResult, CustomMsg, Env, MessageInfo, QueryResponse, Reply, Response,
+    Attribute, BankMsg, Binary, Coin, ContractResult, CosmosMsg, CustomMsg, Env, MessageInfo,
+    QueryResponse, Reply, Response, SubMsg, WasmMsg,
 };
 #[cfg(feature = "stargate")]
 use cosmwasm_std::{
@@ -98,46 +99,130 @@ mod deserialization_limits {
     pub const RESULT_IBC_PACKET_TIMEOUT: usize = 256 * KI;
 }
 
-#[derive(Serialize)]
-struct MessageInfoV0_13_2 {
-    pub sender: String,
-    pub sent_funds: Vec<Coin>,
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OldWasmMsg {
+    Execute {
+        contract_addr: String,
+        msg: Binary,
+        send: Vec<Coin>,
+    },
+    Instantiate {
+        code_id: u64,
+        msg: Binary,
+        send: Vec<Coin>,
+        label: Option<String>,
+    },
 }
 
-#[derive(Serialize)]
-pub struct EnvV0_13_2 {
-    pub block: BlockInfoV0_13_2,
-    pub contract: ContractInfo,
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OldCosmosMsg {
+    Bank(BankMsg),
+    #[cfg(feature = "staking")]
+    Staking(cosmwasm_std::StakingMsg),
+    Wasm(OldWasmMsg),
 }
 
-#[derive(Serialize)]
-pub struct BlockInfoV0_13_2 {
-    pub height: u64,
-    pub time: u64,
-    pub time_nanos: u64,
-    pub chain_id: String,
+#[derive(Deserialize)]
+pub struct OldResponse {
+    /// version 5 has submessages, so we can use optional or default serde
+    #[serde(default)]
+    pub submessages: Vec<SubMsg>,
+    pub messages: Vec<OldCosmosMsg>,
+    /// The attributes that will be emitted as part of a "wasm" event
+    pub attributes: Vec<Attribute>,
+    pub data: Option<Binary>,
 }
 
-fn get_old_args(env: &[u8], info: &[u8]) -> VmResult<(Vec<u8>, Vec<u8>)> {
-    let info_struct: MessageInfo = from_slice(info, 1024)?;
-    let old_info_struct = MessageInfoV0_13_2 {
-        sender: info_struct.sender.to_string(),
-        sent_funds: info_struct.funds,
-    };
+fn get_old_env(env: &[u8]) -> Vec<u8> {
+    let Env {
+        block, contract, ..
+    } = serde_json::from_slice(env).unwrap();
 
-    let env_struct: Env = from_slice(env, 1024)?;
-    let old_env_struct = EnvV0_13_2 {
-        block: BlockInfoV0_13_2 {
-            // time in seconds
-            time: env_struct.block.time.nanos() / 1_000_000_000,
-            time_nanos: env_struct.block.time.nanos(),
-            height: env_struct.block.height,
-            chain_id: env_struct.block.chain_id,
-        },
-        contract: env_struct.contract,
-    };
+    // just format the correct json is ok
+    format!(
+        r#"{{"block":{{"height":{},"time":{},"time_nanos":{},"chain_id":"{}"}},"contract":{{"address":"{}"}}}}"#,
+        block.height,
+        block.time.nanos() / 1_000_000_000,
+        block.time.nanos(),
+        block.chain_id,
+        contract.address
+    ).into_bytes()
+}
 
-    Ok((to_vec(&old_env_struct)?, to_vec(&old_info_struct)?))
+fn get_old_info(info: &[u8]) -> Vec<u8> {
+    // just replace the first funds key is ok
+    unsafe {
+        String::from_utf8_unchecked(info.to_vec())
+            .replacen("\"funds\"", "\"sent_funds\"", 1)
+            .into_bytes()
+    }
+}
+
+fn get_new_response(response: Vec<u8>) -> Vec<u8> {
+    // convert response when success
+    if let ContractResult::Ok(old_response) =
+        serde_json::from_slice::<ContractResult<OldResponse>>(&response).unwrap()
+    {
+        // because Response can only modify using chain, it will return new move on each operation
+        // so we should check condition for each operation
+        let mut new_response = Response::new();
+
+        if !old_response.attributes.is_empty() {
+            new_response = new_response.add_attributes(old_response.attributes)
+        }
+
+        // this is for version 5
+        if !old_response.submessages.is_empty() {
+            new_response = new_response.add_submessages(old_response.submessages);
+        }
+
+        if !old_response.messages.is_empty() {
+            new_response = new_response.add_messages(
+                old_response
+                    .messages
+                    .into_iter()
+                    .map(|message| match message {
+                        OldCosmosMsg::Wasm(OldWasmMsg::Instantiate {
+                            code_id,
+                            msg,
+                            send,
+                            label,
+                        }) => CosmosMsg::Wasm(WasmMsg::Instantiate {
+                            admin: None,
+                            code_id,
+                            msg,
+                            funds: send,
+                            label: label.unwrap_or_default(),
+                        }),
+                        OldCosmosMsg::Wasm(OldWasmMsg::Execute {
+                            contract_addr,
+                            msg,
+                            send,
+                        }) => CosmosMsg::Wasm(WasmMsg::Execute {
+                            contract_addr,
+                            msg,
+                            funds: send,
+                        }),
+                        OldCosmosMsg::Bank(msg) => CosmosMsg::Bank(msg),
+                        #[cfg(feature = "staking")]
+                        OldCosmosMsg::Staking(msg) => CosmosMsg::Staking(msg),
+                    })
+                    .collect::<Vec<CosmosMsg>>(),
+            );
+        }
+
+        // update custom data
+        if let Some(data) = old_response.data {
+            new_response = new_response.set_data(data);
+        }
+
+        return serde_json::to_vec(&ContractResult::Ok(new_response)).unwrap();
+    }
+
+    // return same error
+    response
 }
 
 pub fn call_instantiate<A, S, Q, U>(
@@ -387,27 +472,32 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
+    let version = instance.get_interface_version();
 
-    if instance
-        .call_function0("cosmwasm_vm_version_4", &[])
-        .is_ok()
-    {
+    // version 4 has old env and info struct
+    let response = if version == 4 {
         // this can be called from vm go
-        let (old_env, old_info) = get_old_args(env, info)?;
-
-        return call_raw(
+        call_raw(
             instance,
             "init",
-            &[&old_env, &old_info, msg],
+            &[&get_old_env(env), &get_old_info(info), msg],
             read_limits::RESULT_INSTANTIATE,
-        );
+        )
+    } else {
+        call_raw(
+            instance,
+            "instantiate",
+            &[env, info, msg],
+            read_limits::RESULT_INSTANTIATE,
+        )
+    };
+
+    // version 4 & 5 has old response struct
+    if version < 6 {
+        response.map(get_new_response)
+    } else {
+        response
     }
-    call_raw(
-        instance,
-        "instantiate",
-        &[env, info, msg],
-        read_limits::RESULT_INSTANTIATE,
-    )
 }
 
 /// Calls Wasm export "execute" and returns raw data from the contract.
@@ -424,28 +514,32 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
+    let version = instance.get_interface_version();
 
-    if instance
-        .call_function0("cosmwasm_vm_version_4", &[])
-        .is_ok()
-    {
+    // version 4 has old env and info struct
+    let response = if version == 4 {
         // this can be called from vm go
-        let (old_env, old_info) = get_old_args(env, info)?;
-
-        return call_raw(
+        call_raw(
             instance,
             "handle",
-            &[&old_env, &old_info, msg],
+            &[&get_old_env(env), &get_old_info(info), msg],
             read_limits::RESULT_EXECUTE,
-        );
-    }
+        )
+    } else {
+        call_raw(
+            instance,
+            "execute",
+            &[env, info, msg],
+            read_limits::RESULT_EXECUTE,
+        )
+    };
 
-    call_raw(
-        instance,
-        "execute",
-        &[env, info, msg],
-        read_limits::RESULT_EXECUTE,
-    )
+    // version 4 & 5 has old response struct
+    if version < 6 {
+        response.map(get_new_response)
+    } else {
+        response
+    }
 }
 
 /// Calls Wasm export "migrate" and returns raw data from the contract.
@@ -461,12 +555,33 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(false);
-    call_raw(
-        instance,
-        "migrate",
-        &[env, msg],
-        read_limits::RESULT_MIGRATE,
-    )
+    let version = instance.get_interface_version();
+
+    // version 4 has old env and info struct
+    let response = if version == 4 {
+        // this can be called from vm go, migrate in old version still require [env,info,msg]
+        // but we just give an empty MessageInfo to satisfy the old code
+        call_raw(
+            instance,
+            "migrate",
+            &[&get_old_env(env), br#"{"sent_funds":[],"sender":""}"#, msg],
+            read_limits::RESULT_MIGRATE,
+        )
+    } else {
+        call_raw(
+            instance,
+            "migrate",
+            &[env, msg],
+            read_limits::RESULT_MIGRATE,
+        )
+    };
+
+    // version 4 & 5 has old response struct
+    if version < 6 {
+        response.map(get_new_response)
+    } else {
+        response
+    }
 }
 
 /// Calls Wasm export "sudo" and returns raw data from the contract.
@@ -514,6 +629,18 @@ where
     Q: Querier + 'static,
 {
     instance.set_storage_readonly(true);
+    let version = instance.get_interface_version();
+
+    // version 4 has old env and info struct
+    if version == 4 {
+        return call_raw(
+            instance,
+            "query",
+            &[&get_old_env(env), msg],
+            read_limits::RESULT_QUERY,
+        );
+    };
+
     call_raw(instance, "query", &[env, msg], read_limits::RESULT_QUERY)
 }
 
@@ -671,6 +798,7 @@ mod tests {
     use cosmwasm_std::{coins, Empty};
 
     static CONTRACT: &[u8] = include_bytes!("../testdata/hackatom.wasm");
+    static CYBERPUNK: &[u8] = include_bytes!("../testdata/cyberpunk.wasm");
 
     #[test]
     fn call_instantiate_works() {
@@ -701,6 +829,70 @@ mod tests {
         call_execute::<_, _, _, Empty>(&mut instance, &mock_env(), &info, msg)
             .unwrap()
             .unwrap();
+    }
+
+    #[test]
+    fn call_execute_runs_out_of_gas() {
+        let mut instance = mock_instance(CYBERPUNK, &[]);
+
+        // init
+        let info = mock_info("creator", &[]);
+        call_instantiate::<_, _, _, Empty>(&mut instance, &mock_env(), &info, br#"{}"#)
+            .unwrap()
+            .unwrap();
+
+        // execute
+        let info = mock_info("looper", &[]);
+        let msg = br#"{"cpu_loop":{}}"#;
+        let err =
+            call_execute::<_, _, _, Empty>(&mut instance, &mock_env(), &info, msg).unwrap_err();
+        assert!(matches!(err, VmError::GasDepletion {}));
+    }
+
+    #[test]
+    fn call_execute_handles_panic() {
+        let mut instance = mock_instance(CYBERPUNK, &[]);
+
+        let info = mock_info("creator", &[]);
+        call_instantiate::<_, _, _, Empty>(&mut instance, &mock_env(), &info, br#"{}"#)
+            .unwrap()
+            .unwrap();
+
+        // execute
+        let info = mock_info("troll", &[]);
+        let msg = br#"{"panic":{}}"#;
+        let err =
+            call_execute::<_, _, _, Empty>(&mut instance, &mock_env(), &info, msg).unwrap_err();
+        match err {
+            VmError::RuntimeErr { msg } => {
+                assert!(msg.contains(
+                    "RuntimeError: Aborted: panicked at 'This page intentionally faulted'"
+                ))
+            }
+            err => panic!("Unexpected error: {:?}", err),
+        }
+    }
+
+    #[test]
+    fn call_execute_handles_unreachable() {
+        let mut instance = mock_instance(CYBERPUNK, &[]);
+
+        let info = mock_info("creator", &[]);
+        call_instantiate::<_, _, _, Empty>(&mut instance, &mock_env(), &info, br#"{}"#)
+            .unwrap()
+            .unwrap();
+
+        // execute
+        let info = mock_info("troll", &[]);
+        let msg = br#"{"unreachable":{}}"#;
+        let err =
+            call_execute::<_, _, _, Empty>(&mut instance, &mock_env(), &info, msg).unwrap_err();
+        match err {
+            VmError::RuntimeErr { msg } => {
+                assert!(msg.contains("RuntimeError: unreachable"))
+            }
+            err => panic!("Unexpected error: {:?}", err),
+        }
     }
 
     #[test]

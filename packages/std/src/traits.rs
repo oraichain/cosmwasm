@@ -4,7 +4,7 @@ use std::ops::Deref;
 
 use crate::addresses::{Addr, CanonicalAddr};
 use crate::binary::Binary;
-use crate::coins::Coin;
+use crate::coin::Coin;
 use crate::errors::{RecoverPubkeyError, StdError, StdResult, VerificationError};
 #[cfg(feature = "iterator")]
 use crate::iterator::{Order, Record};
@@ -95,7 +95,11 @@ pub trait Api {
     fn addr_validate(&self, human: &str) -> StdResult<Addr>;
 
     /// Takes a human readable address and returns a canonical binary representation of it.
-    /// This can be used when a compact fixed length representation is needed.
+    /// This can be used when a compact representation is needed.
+    ///
+    /// Please note that the length of the resulting address is defined by the chain and
+    /// can vary from address to address. On Cosmos chains 20 and 32 bytes are typically used.
+    /// But that might change. So your contract should not make assumptions on the size.
     fn addr_canonicalize(&self, human: &str) -> StdResult<CanonicalAddr>;
 
     /// Takes a canonical address and returns a human readble address.
@@ -110,6 +114,17 @@ pub trait Api {
         signature: &[u8],
         public_key: &[u8],
     ) -> Result<bool, VerificationError>;
+
+    fn groth16_verify(
+        &self,
+        input: &[u8],
+        proof: &[u8],
+        vk: &[u8],
+    ) -> Result<bool, VerificationError>;
+
+    fn poseidon_hash(&self, inputs: &[&[u8]]) -> StdResult<Vec<u8>>;
+
+    fn curve_hash(&self, input: &[u8]) -> StdResult<Vec<u8>>;
 
     fn secp256k1_recover_pubkey(
         &self,

@@ -5,7 +5,7 @@
 mod addresses;
 mod assertions;
 mod binary;
-mod coins;
+mod coin;
 mod conversion;
 mod deps;
 mod errors;
@@ -15,6 +15,7 @@ mod import_helpers;
 #[cfg(feature = "iterator")]
 mod iterator;
 mod math;
+mod never;
 mod panic;
 mod query;
 mod results;
@@ -25,9 +26,9 @@ mod timestamp;
 mod traits;
 mod types;
 
-pub use crate::addresses::{Addr, CanonicalAddr};
+pub use crate::addresses::{instantiate2_address, Addr, CanonicalAddr};
 pub use crate::binary::Binary;
-pub use crate::coins::{coin, coins, has_coins, Coin};
+pub use crate::coin::{coin, coins, has_coins, Coin};
 pub use crate::deps::{Deps, DepsMut, OwnedDeps};
 pub use crate::errors::{
     CheckedFromRatioError, CheckedMultiplyRatioError, ConversionOverflowError, DivideByZeroError,
@@ -48,6 +49,7 @@ pub use crate::math::{
     Decimal, Decimal256, Decimal256RangeExceeded, DecimalRangeExceeded, Fraction, Isqrt, Uint128,
     Uint256, Uint512, Uint64,
 };
+pub use crate::never::Never;
 #[cfg(feature = "cosmwasm_1_1")]
 pub use crate::query::SupplyResponse;
 pub use crate::query::{
@@ -63,6 +65,8 @@ pub use crate::query::{
 pub use crate::query::{ChannelResponse, IbcQuery, ListChannelsResponse, PortIdResponse};
 #[allow(deprecated)]
 pub use crate::results::SubMsgExecutionResponse;
+#[cfg(all(feature = "stargate", feature = "cosmwasm_1_2"))]
+pub use crate::results::WeightedVoteOption;
 pub use crate::results::{
     attr, wasm_execute, wasm_instantiate, Attribute, BankMsg, ContractResult, CosmosMsg, CustomMsg,
     Empty, Event, QueryResponse, Reply, ReplyOn, Response, SubMsg, SubMsgResponse, SubMsgResult,

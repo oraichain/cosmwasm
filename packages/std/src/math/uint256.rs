@@ -163,7 +163,10 @@ impl Uint256 {
         Self(res)
     }
 
-    /// Returns `self * numerator / denominator`
+    /// Returns `self * numerator / denominator`.
+    ///
+    /// Due to the nature of the integer division involved, the result is always floored.
+    /// E.g. 5 * 99/100 = 4.
     pub fn multiply_ratio<A: Into<Uint256>, B: Into<Uint256>>(
         &self,
         numerator: A,
@@ -178,7 +181,10 @@ impl Uint256 {
         }
     }
 
-    /// Returns `self * numerator / denominator`
+    /// Returns `self * numerator / denominator`.
+    ///
+    /// Due to the nature of the integer division involved, the result is always floored.
+    /// E.g. 5 * 99/100 = 4.
     pub fn checked_multiply_ratio<A: Into<Uint256>, B: Into<Uint256>>(
         &self,
         numerator: A,
@@ -276,6 +282,30 @@ impl Uint256 {
         }
 
         Ok(Self(self.0.shl(other)))
+    }
+
+    #[inline]
+    pub fn wrapping_add(self, other: Self) -> Self {
+        let (value, _did_overflow) = self.0.overflowing_add(other.0);
+        Self(value)
+    }
+
+    #[inline]
+    pub fn wrapping_sub(self, other: Self) -> Self {
+        let (value, _did_overflow) = self.0.overflowing_sub(other.0);
+        Self(value)
+    }
+
+    #[inline]
+    pub fn wrapping_mul(self, other: Self) -> Self {
+        let (value, _did_overflow) = self.0.overflowing_mul(other.0);
+        Self(value)
+    }
+
+    #[inline]
+    pub fn wrapping_pow(self, other: u32) -> Self {
+        let (value, _did_overflow) = self.0.overflowing_pow(other.into());
+        Self(value)
     }
 
     pub fn saturating_add(self, other: Self) -> Self {
@@ -1171,6 +1201,43 @@ mod tests {
 
         assert!(!Uint256::from(1u32).is_zero());
         assert!(!Uint256::from(123u32).is_zero());
+    }
+
+    #[test]
+    fn uint256_wrapping_methods() {
+        // wrapping_add
+        assert_eq!(
+            Uint256::from(2u32).wrapping_add(Uint256::from(2u32)),
+            Uint256::from(4u32)
+        ); // non-wrapping
+        assert_eq!(
+            Uint256::MAX.wrapping_add(Uint256::from(1u32)),
+            Uint256::from(0u32)
+        ); // wrapping
+
+        // wrapping_sub
+        assert_eq!(
+            Uint256::from(7u32).wrapping_sub(Uint256::from(5u32)),
+            Uint256::from(2u32)
+        ); // non-wrapping
+        assert_eq!(
+            Uint256::from(0u32).wrapping_sub(Uint256::from(1u32)),
+            Uint256::MAX
+        ); // wrapping
+
+        // wrapping_mul
+        assert_eq!(
+            Uint256::from(3u32).wrapping_mul(Uint256::from(2u32)),
+            Uint256::from(6u32)
+        ); // non-wrapping
+        assert_eq!(
+            Uint256::MAX.wrapping_mul(Uint256::from(2u32)),
+            Uint256::MAX - Uint256::one()
+        ); // wrapping
+
+        // wrapping_pow
+        assert_eq!(Uint256::from(2u32).wrapping_pow(3), Uint256::from(8u32)); // non-wrapping
+        assert_eq!(Uint256::MAX.wrapping_pow(2), Uint256::from(1u32)); // wrapping
     }
 
     #[test]

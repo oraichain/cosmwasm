@@ -12,7 +12,8 @@ use k256::elliptic_curve::sec1::ToEncodedPoint;
 use sha2::Sha256;
 
 use cosmwasm_crypto::{
-    ed25519_batch_verify, ed25519_verify, secp256k1_recover_pubkey, secp256k1_verify,
+    curve_hash, ed25519_batch_verify, ed25519_verify, groth16_verify, secp256k1_recover_pubkey,
+    secp256k1_verify, Poseidon,
 };
 use std::cmp::min;
 
@@ -28,6 +29,14 @@ const COSMOS_ED25519_PUBLIC_KEY_HEX: &str =
 
 // Test data from https://tools.ietf.org/html/rfc8032#section-7.1
 const COSMOS_ED25519_TESTS_JSON: &str = "./testdata/ed25519_tests.json";
+
+// Test poseidon
+const COMMITMENT: &str = "84d6bdcfd953993012f08970d9c9b472d96114b4edc69481968cafc07877381c";
+
+// Test groth16 verify
+const PUBLIC_INPUT:&str="b7a08d5962f1dc5778f9f2385c291ce6f76f9b075e028e6500f327203bebc61f5219025541ad12054aaf6c0ee8c5ae09f23b693068a9cc80fd960f666cd65121e0fb95195eb23c3c65d7df44a7adf83871ec0380189d3e757417765d51ae0d2a";
+const PROOF : &str="220db2e21ce3a4cb15bc70bdea9a40bfaf17bf236b8a05a298506d1b7fe2c4aeb62795a4dc410cc768fbcf0956155e4a71fb6785c6914d3b6ea9de5fa7b4992591ffbaf98c58474cd062ab9a813fa05a17aef87479a4e5c4d8e8b5e44b0d01869241daef38dd52074a0677564e890e05761ac36c6c9ff23d8356b9ad6d9aeb2f";
+const VK:&str="a8d29ea40629be762f2a12bda7cc45b998a34c43a96c4c6744c8c7a900e8f80a5eece6fa5771489cb0306f499ad91a33d0159f29786332d782db870a0980440aa1225ad23c0e476c7d36b796e6a9b50240841b4be955d13ea54dd8da01128e0cf92094b459ff882780abdf3e1784c06df6c85c0006fd7f2597e3e9052d9215274f08fc4f94dc8129f29a578dc17f5ea60ea85d2c88a78294b792dbf2fa8d30973b80ca6b567463b690b8b3a8f70eb6468227358e5f316eb8150a92152b753519c4ca827fec17f7283d15228767b56b736ec9498f39fe5b511a8af503b63a19970400000000000000b9c86bbe3e5ef3490d5db478be0a7933934e4b5a148e2c01602b475c83e2500891dc44a6fe2f331da9b66f3562398a762677f7b7c95d3a82a9698e0cf6212128d6eb27a3f11abb52a98a509bf1502f0947e9ab9c1d72a086140c0d316866d624c22a69f8dfb5957e35d8d3d350b3c83ee95e8897c7b76d41881683d2561cd919";
 
 #[derive(Deserialize, Debug)]
 struct Encoded {
@@ -78,11 +87,36 @@ fn bench_crypto(c: &mut Criterion) {
 
     group.bench_function("secp256k1_verify", |b| {
         let message = hex::decode(COSMOS_SECP256K1_MSG_HEX).unwrap();
-        let message_hash = Sha256::digest(&message);
+        let message_hash = Sha256::digest(message);
         let signature = hex::decode(COSMOS_SECP256K1_SIGNATURE_HEX).unwrap();
         let public_key = base64::decode(COSMOS_SECP256K1_PUBKEY_BASE64).unwrap();
         b.iter(|| {
             assert!(secp256k1_verify(&message_hash, &signature, &public_key).unwrap());
+        });
+    });
+
+    group.bench_function("curve_hash", |b| {
+        let message = hex::decode(COSMOS_SECP256K1_MSG_HEX).unwrap();
+        let message_hash = Sha256::digest(&message);
+        b.iter(|| {
+            assert!(!curve_hash(&message_hash).is_empty());
+        });
+    });
+
+    group.bench_function("poseidon_hash", |b| {
+        let commitment_hash = hex::decode(COMMITMENT).unwrap();
+        let poseidon = Poseidon::new();
+        b.iter(|| {
+            assert!(poseidon.hash(&[&commitment_hash, &commitment_hash]).is_ok());
+        });
+    });
+
+    group.bench_function("groth16_verify", |b| {
+        let input = hex::decode(PUBLIC_INPUT).unwrap();
+        let proof = hex::decode(PROOF).unwrap();
+        let vk = hex::decode(VK).unwrap();
+        b.iter(|| {
+            assert!(groth16_verify(&input, &proof, &vk).unwrap());
         });
     });
 

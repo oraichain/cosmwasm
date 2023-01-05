@@ -23,6 +23,9 @@ const SUPPORTED_IMPORTS: &[&str] = &[
     "env.secp256k1_recover_pubkey",
     "env.ed25519_verify",
     "env.ed25519_batch_verify",
+    "env.groth16_verify",
+    "env.poseidon_hash",
+    "env.curve_hash",
     "env.debug",
     "env.query_chain",
     #[cfg(feature = "iterator")]
@@ -40,18 +43,17 @@ const REQUIRED_EXPORTS: &[&str] = &[
     // IO
     "allocate",
     "deallocate",
-    // Required entry points
+    // we support for all cosmwasm, so we don't check instantiate entrypoint for old version
+    // // Required entry points
     // "instantiate",
 ];
 
 const INTERFACE_VERSION_PREFIX: &str = "interface_version_";
-const SUPPORTED_INTERFACE_VERSIONS: &[&str] = &[
-    "interface_version_8",
-    #[cfg(feature = "allow_interface_version_7")]
-    "interface_version_7",
-];
 
 const MEMORY_LIMIT: u32 = 512; // in pages
+
+// support until this version
+pub const INTERFACE_VERSION: u8 = 8;
 
 /// Checks if the data is valid wasm and compatibility with the CosmWasm API (imports and exports)
 pub fn check_wasm(wasm_code: &[u8], available_capabilities: &HashSet<String>) -> VmResult<()> {
@@ -101,13 +103,26 @@ fn check_wasm_memories(module: &Module) -> VmResult<()> {
 }
 
 fn check_interface_version(module: &Module) -> VmResult<()> {
+    let version = get_interface_version(module)?;
+    // version from 4 to 8
+    if version > 0 && version <= INTERFACE_VERSION {
+        Ok(())
+    } else {
+        Err(VmError::static_validation_err(
+                        "Wasm contract has unknown interface_version_* marker export (see https://github.com/CosmWasm/cosmwasm/blob/main/packages/vm/README.md)",
+                ))
+    }
+}
+
+/// return interface version, version 4,5 must fix response, version 4 fix info and env
+pub fn get_interface_version(module: &impl ExportInfo) -> VmResult<u8> {
     // support cosmwasm_vm_version_4 (v0.11.0 - v0.13.2)
     if module
         .exported_function_names(Some("cosmwasm_vm_version_4"))
         .len()
         == 1
     {
-        return Ok(());
+        return Ok(4u8);
     }
 
     let mut interface_version_exports = module
@@ -120,17 +135,11 @@ fn check_interface_version(module: &Module) -> VmResult<()> {
             ))
         } else {
             // Exactly one interface version found
-            let version_str = first_interface_version_export.as_str();
-            if SUPPORTED_INTERFACE_VERSIONS
-                .iter()
-                .any(|&v| v == version_str)
-            {
-                Ok(())
-            } else {
-                Err(VmError::static_validation_err(
-                        "Wasm contract has unknown interface_version_* marker export (see https://github.com/CosmWasm/cosmwasm/blob/main/packages/vm/README.md)",
-                ))
-            }
+            let version = first_interface_version_export[INTERFACE_VERSION_PREFIX.len()..]
+                .parse::<u8>()
+                .unwrap_or_default();
+
+            Ok(version)
         }
     } else {
         Err(VmError::static_validation_err(
@@ -141,6 +150,7 @@ fn check_interface_version(module: &Module) -> VmResult<()> {
 
 fn check_wasm_exports(module: &Module) -> VmResult<()> {
     let available_exports: HashSet<String> = module.exported_function_names(None);
+
     for required_export in REQUIRED_EXPORTS {
         if !available_exports.contains(*required_export) {
             return Err(VmError::static_validation_err(format!(

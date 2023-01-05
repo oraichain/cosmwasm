@@ -3,10 +3,12 @@ use std::borrow::{Borrow, BorrowMut};
 use std::ptr::NonNull;
 use std::sync::{Arc, RwLock};
 
+use cosmwasm_crypto::Poseidon;
 use wasmer::{HostEnvInitError, Instance as WasmerInstance, Memory, Val, WasmerEnv};
 use wasmer_middlewares::metering::{get_remaining_points, set_remaining_points, MeteringPoints};
 
 use crate::backend::{BackendApi, GasInfo, Querier, Storage};
+use crate::compatibility::INTERFACE_VERSION;
 use crate::errors::{VmError, VmResult};
 
 /// Never can never be instantiated.
@@ -21,6 +23,15 @@ pub struct GasConfig {
     /// Gas costs of VM (not Backend) provided functionality
     /// secp256k1 signature verification cost
     pub secp256k1_verify_cost: u64,
+
+    /// groth16 verification cost
+    pub groth16_verify_cost: u64,
+
+    /// poseido hash cost
+    pub poseidon_hash_cost: u64,
+
+    pub curve_hash_cost: u64,
+
     /// secp256k1 public key recovery cost
     pub secp256k1_recover_pubkey_cost: u64,
     /// ed25519 signature verification cost
@@ -38,6 +49,16 @@ impl Default for GasConfig {
         Self {
             // ~154 us in crypto benchmarks
             secp256k1_verify_cost: 154 * GAS_PER_US,
+
+            // ~6920 us in crypto benchmarks
+            groth16_verify_cost: 6920 * GAS_PER_US,
+
+            // ~43 us in crypto benchmarks
+            poseidon_hash_cost: 43 * GAS_PER_US,
+
+            // ~920 ns ~ 1 us in crypto benchmarks
+            curve_hash_cost: 1 * GAS_PER_US,
+
             // ~162 us in crypto benchmarks
             secp256k1_recover_pubkey_cost: 162 * GAS_PER_US,
             // ~63 us in crypto benchmarks
@@ -56,6 +77,8 @@ impl Default for GasConfig {
 pub struct GasState {
     /// Gas limit for the computation, including internally and externally used gas.
     /// This is set when the Environment is created and never mutated.
+    ///
+    /// Measured in [CosmWasm gas](https://github.com/CosmWasm/cosmwasm/blob/main/docs/GAS.md).
     pub gas_limit: u64,
     /// Tracking the gas used in the Cosmos SDK, in CosmWasm gas units.
     pub externally_used_gas: u64,
@@ -76,6 +99,10 @@ pub struct Environment<A: BackendApi, S: Storage, Q: Querier> {
     pub api: A,
     pub print_debug: bool,
     pub gas_config: GasConfig,
+    // use this to store Poseidon instance
+    pub poseidon: Poseidon,
+    // caching interface version for later check
+    pub interface_version: u8,
     data: Arc<RwLock<ContextData<S, Q>>>,
 }
 
@@ -89,6 +116,8 @@ impl<A: BackendApi, S: Storage, Q: Querier> Clone for Environment<A, S, Q> {
             api: self.api,
             print_debug: self.print_debug,
             gas_config: self.gas_config.clone(),
+            poseidon: self.poseidon.clone(),
+            interface_version: self.interface_version,
             data: self.data.clone(),
         }
     }
@@ -101,11 +130,13 @@ impl<A: BackendApi, S: Storage, Q: Querier> WasmerEnv for Environment<A, S, Q> {
 }
 
 impl<A: BackendApi, S: Storage, Q: Querier> Environment<A, S, Q> {
-    pub fn new(api: A, gas_limit: u64, print_debug: bool) -> Self {
+    pub fn new(api: A, gas_limit: u64, print_debug: bool, interface_version: Option<u8>) -> Self {
         Environment {
             api,
             print_debug,
             gas_config: GasConfig::default(),
+            poseidon: Poseidon::new(),
+            interface_version: interface_version.unwrap_or(INTERFACE_VERSION),
             data: Arc::new(RwLock::new(ContextData::new(gas_limit))),
         }
     }
@@ -390,7 +421,7 @@ mod tests {
         Environment<MockApi, MockStorage, MockQuerier>,
         Box<WasmerInstance>,
     ) {
-        let env = Environment::new(MockApi::default(), gas_limit, false);
+        let env = Environment::new(MockApi::default(), gas_limit, false, None);
 
         let module = compile(CONTRACT, TESTING_MEMORY_LIMIT, &[]).unwrap();
         let store = module.store();

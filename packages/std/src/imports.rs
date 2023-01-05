@@ -1,7 +1,6 @@
 use std::vec::Vec;
 
 use crate::addresses::{Addr, CanonicalAddr};
-use crate::binary::Binary;
 use crate::errors::{RecoverPubkeyError, StdError, StdResult, SystemError, VerificationError};
 use crate::import_helpers::{from_high_half, from_low_half};
 use crate::memory::{alloc, build_region, consume_region, Region};
@@ -48,6 +47,13 @@ extern "C" {
     /// Returns 0 on verification success, 1 on verification failure, and values
     /// greater than 1 in case of error.
     fn secp256k1_verify(message_hash_ptr: u32, signature_ptr: u32, public_key_ptr: u32) -> u32;
+
+    /// Verifies groth 16
+    fn groth16_verify(input_ptr: u32, proof_ptr: u32, vk_ptr: u32) -> u32;
+    /// poseidon hash
+    fn poseidon_hash(inputs_ptr: u32, hash_ptr: u32) -> u32;
+    /// on curve hash
+    fn curve_hash(input_ptr: u32, hash_ptr: u32) -> u32;
 
     fn secp256k1_recover_pubkey(
         message_hash_ptr: u32,
@@ -224,7 +230,7 @@ impl Api for ExternalApi {
         }
 
         let out = unsafe { consume_region(canon) };
-        Ok(CanonicalAddr(Binary(out)))
+        Ok(CanonicalAddr::from(out))
     }
 
     fn addr_humanize(&self, canonical: &CanonicalAddr) -> StdResult<Addr> {
@@ -269,6 +275,68 @@ impl Api for ExternalApi {
             10 => Err(VerificationError::GenericErr),
             error_code => Err(VerificationError::unknown_err(error_code)),
         }
+    }
+
+    fn groth16_verify(
+        &self,
+        input: &[u8],
+        proof: &[u8],
+        vk: &[u8],
+    ) -> Result<bool, VerificationError> {
+        let input_send = build_region(input);
+        let input_send_ptr = &*input_send as *const Region as u32;
+        let proof_send = build_region(proof);
+        let proof_send_ptr = &*proof_send as *const Region as u32;
+        let vk_send = build_region(vk);
+        let vk_send_ptr = &*vk_send as *const Region as u32;
+
+        let result = unsafe { groth16_verify(input_send_ptr, proof_send_ptr, vk_send_ptr) };
+        match result {
+            0 => Ok(true),
+            1 => Ok(false),
+            2 => panic!("MessageTooLong must not happen. This is a bug in the VM."),
+            10 => Err(VerificationError::GenericErr),
+            error_code => Err(VerificationError::unknown_err(error_code)), // 3, 4 => verification and input hash error
+        }
+    }
+
+    fn poseidon_hash(&self, inputs: &[&[u8]]) -> StdResult<Vec<u8>> {
+        let msgs_encoded = encode_sections(inputs);
+        let msgs_send = build_region(&msgs_encoded);
+        let msgs_send_ptr = &*msgs_send as *const Region as u32;
+
+        let hash = alloc(32); // hash
+
+        let result = unsafe { poseidon_hash(msgs_send_ptr, hash as u32) };
+        if result != 0 {
+            let error = unsafe { consume_string_region_written_by_vm(result as *mut Region) };
+            return Err(StdError::generic_err(format!(
+                "poseidon_hash errored: {}",
+                error
+            )));
+        }
+
+        let out = unsafe { consume_region(hash) };
+        Ok(out)
+    }
+
+    fn curve_hash(&self, input: &[u8]) -> StdResult<Vec<u8>> {
+        let input_send = build_region(input);
+        let input_send_ptr = &*input_send as *const Region as u32;
+
+        let hash = alloc(32); // hash
+
+        let result = unsafe { curve_hash(input_send_ptr, hash as u32) };
+        if result != 0 {
+            let error = unsafe { consume_string_region_written_by_vm(result as *mut Region) };
+            return Err(StdError::generic_err(format!(
+                "curve_hash errored: {}",
+                error
+            )));
+        }
+
+        let out = unsafe { consume_region(hash) };
+        Ok(out)
     }
 
     fn secp256k1_recover_pubkey(

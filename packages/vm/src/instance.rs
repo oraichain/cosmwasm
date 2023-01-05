@@ -6,13 +6,15 @@ use wasmer::{Exports, Function, ImportObject, Instance as WasmerInstance, Module
 
 use crate::backend::{Backend, BackendApi, Querier, Storage};
 use crate::capabilities::required_capabilities_from_module;
+use crate::compatibility::get_interface_version;
 use crate::conversion::{ref_to_u32, to_u32};
 use crate::environment::Environment;
 use crate::errors::{CommunicationError, VmError, VmResult};
 use crate::imports::{
-    do_abort, do_addr_canonicalize, do_addr_humanize, do_addr_validate, do_db_read, do_db_remove,
-    do_db_write, do_debug, do_ed25519_batch_verify, do_ed25519_verify, do_query_chain,
-    do_secp256k1_recover_pubkey, do_secp256k1_verify,
+    do_abort, do_addr_canonicalize, do_addr_humanize, do_addr_validate, do_curve_hash, do_db_read,
+    do_db_remove, do_db_write, do_debug, do_ed25519_batch_verify, do_ed25519_verify,
+    do_groth16_verify, do_poseidon_hash, do_query_chain, do_secp256k1_recover_pubkey,
+    do_secp256k1_verify,
 };
 #[cfg(feature = "iterator")]
 use crate::imports::{do_db_next, do_db_scan};
@@ -35,6 +37,7 @@ pub struct GasReport {
 
 #[derive(Copy, Clone, Debug)]
 pub struct InstanceOptions {
+    /// Gas limit measured in [CosmWasm gas](https://github.com/CosmWasm/cosmwasm/blob/main/docs/GAS.md).
     pub gas_limit: u64,
     pub print_debug: bool,
 }
@@ -84,7 +87,12 @@ where
     ) -> VmResult<Self> {
         let store = module.store();
 
-        let env = Environment::new(backend.api, gas_limit, print_debug);
+        let env = Environment::new(
+            backend.api,
+            gas_limit,
+            print_debug,
+            get_interface_version(module).ok(),
+        );
 
         let mut import_obj = ImportObject::new();
         let mut env_imports = Exports::new();
@@ -159,6 +167,24 @@ where
         env_imports.insert(
             "ed25519_verify",
             Function::new_native_with_env(store, env.clone(), do_ed25519_verify),
+        );
+
+        // Verifies groth 16
+        env_imports.insert(
+            "groth16_verify",
+            Function::new_native_with_env(store, env.clone(), do_groth16_verify),
+        );
+
+        // poseidon hash
+        env_imports.insert(
+            "poseidon_hash",
+            Function::new_native_with_env(store, env.clone(), do_poseidon_hash),
+        );
+
+        // curve hash
+        env_imports.insert(
+            "curve_hash",
+            Function::new_native_with_env(store, env.clone(), do_curve_hash),
         );
 
         // Verifies a batch of messages against a batch of signatures with a batch of public keys,
@@ -241,7 +267,7 @@ where
                 WasmerInstance::new(module, &import_obj)
             }
             .map_err(|original| {
-                VmError::instantiation_err(format!("Error instantiating module: {:?}", original))
+                VmError::instantiation_err(format!("Error instantiating module: {original}"))
             })?,
         );
 
@@ -372,6 +398,11 @@ where
     /// The function is expected to return one value. Otherwise this calls errors.
     pub(crate) fn call_function1(&self, name: &str, args: &[Val]) -> VmResult<Val> {
         self.env.call_function1(name, args)
+    }
+
+    /// Get the interface version to support multiple cosmwasm
+    pub(crate) fn get_interface_version(&self) -> u8 {
+        self.env.interface_version
     }
 }
 

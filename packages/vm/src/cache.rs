@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::fs::{create_dir_all, File, OpenOptions};
+use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
@@ -10,6 +10,7 @@ use crate::capabilities::required_capabilities_from_module;
 use crate::checksum::Checksum;
 use crate::compatibility::check_wasm;
 use crate::errors::{VmError, VmResult};
+use crate::filesystem::mkdir_p;
 use crate::instance::{Instance, InstanceOptions};
 use crate::modules::{FileSystemCache, InMemoryCache, PinnedMemoryCache};
 use crate::size::Size;
@@ -43,6 +44,10 @@ pub struct Metrics {
 
 #[derive(Clone, Debug)]
 pub struct CacheOptions {
+    /// The base directory of this cache.
+    ///
+    /// If this does not exist, it will be created. Not sure if this behaviour
+    /// is desired but wasmd relies on it.
     pub base_dir: PathBuf,
     pub available_capabilities: HashSet<String>,
     pub memory_cache_size: Size,
@@ -108,15 +113,9 @@ where
         let wasm_path = state_path.join(WASM_DIR);
 
         // Ensure all the needed directories exist on disk.
-        for path in [&state_path, &cache_path, &wasm_path].iter() {
-            create_dir_all(path).map_err(|e| {
-                VmError::cache_err(format!(
-                    "Error creating directory {}: {}",
-                    path.display(),
-                    e
-                ))
-            })?;
-        }
+        mkdir_p(&state_path).map_err(|_e| VmError::cache_err("Error creating state directory"))?;
+        mkdir_p(&cache_path).map_err(|_e| VmError::cache_err("Error creating cache directory"))?;
+        mkdir_p(&wasm_path).map_err(|_e| VmError::cache_err("Error creating wasm directory"))?;
 
         let fs_cache = FileSystemCache::new(cache_path.join(MODULES_DIR))
             .map_err(|e| VmError::cache_err(format!("Error file system cache: {}", e)))?;
@@ -172,7 +171,7 @@ where
     }
 
     fn load_wasm_with_path(&self, wasm_path: &Path, checksum: &Checksum) -> VmResult<Vec<u8>> {
-        let code = load_wasm_from_disk(&wasm_path, checksum)?;
+        let code = load_wasm_from_disk(wasm_path, checksum)?;
         // verify hash matches (integrity check)
         if Checksum::generate(&code) != *checksum {
             Err(VmError::integrity_err())
@@ -337,7 +336,7 @@ fn save_wasm_to_disk(dir: impl Into<PathBuf>, wasm: &[u8]) -> VmResult<Checksum>
     // calculate filename
     let checksum = Checksum::generate(wasm);
     let filename = checksum.to_hex();
-    let filepath = dir.into().join(&filename);
+    let filepath = dir.into().join(filename);
 
     // write data to file
     // Since the same filename (a collision resistent hash) cannot be generated from two different byte codes
@@ -356,12 +355,12 @@ fn save_wasm_to_disk(dir: impl Into<PathBuf>, wasm: &[u8]) -> VmResult<Checksum>
 fn load_wasm_from_disk(dir: impl Into<PathBuf>, checksum: &Checksum) -> VmResult<Vec<u8>> {
     // this requires the directory and file to exist
     let path = dir.into().join(checksum.to_hex());
-    let mut file = File::open(path)
-        .map_err(|e| VmError::cache_err(format!("Error opening Wasm file for reading: {}", e)))?;
+    let mut file =
+        File::open(path).map_err(|_e| VmError::cache_err("Error opening Wasm file for reading"))?;
 
     let mut wasm = Vec::<u8>::new();
     file.read_to_end(&mut wasm)
-        .map_err(|e| VmError::cache_err(format!("Error reading Wasm file: {}", e)))?;
+        .map_err(|_e| VmError::cache_err("Error reading Wasm file"))?;
     Ok(wasm)
 }
 
@@ -373,7 +372,7 @@ mod tests {
     use crate::errors::VmError;
     use crate::testing::{mock_backend, mock_env, mock_info, MockApi, MockQuerier, MockStorage};
     use cosmwasm_std::{coins, Empty};
-    use std::fs::OpenOptions;
+    use std::fs::{create_dir_all, OpenOptions};
     use std::io::Write;
     use tempfile::TempDir;
 
@@ -410,6 +409,21 @@ mod tests {
             memory_cache_size: TESTING_MEMORY_CACHE_SIZE,
             instance_memory_limit: TESTING_MEMORY_LIMIT,
         }
+    }
+
+    #[test]
+    fn new_base_dir_will_be_created() {
+        let my_base_dir = TempDir::new()
+            .unwrap()
+            .into_path()
+            .join("non-existent-sub-dir");
+        let options = CacheOptions {
+            base_dir: my_base_dir.clone(),
+            ..make_testing_options()
+        };
+        assert!(!my_base_dir.is_dir());
+        let _cache = unsafe { Cache::<MockApi, MockStorage, MockQuerier>::new(options).unwrap() };
+        assert!(my_base_dir.is_dir());
     }
 
     #[test]
@@ -523,8 +537,7 @@ mod tests {
 
         match cache.load_wasm(&checksum).unwrap_err() {
             VmError::CacheErr { msg, .. } => {
-                assert!(msg
-                    .starts_with("Error opening Wasm file for reading: No such file or directory"))
+                assert_eq!(msg, "Error opening Wasm file for reading")
             }
             e => panic!("Unexpected error: {:?}", e),
         }
@@ -548,7 +561,7 @@ mod tests {
             .path()
             .join(STATE_DIR)
             .join(WASM_DIR)
-            .join(&checksum.to_hex());
+            .join(checksum.to_hex());
         let mut file = OpenOptions::new().write(true).open(filepath).unwrap();
         file.write_all(b"broken data").unwrap();
 
