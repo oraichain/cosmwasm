@@ -26,7 +26,7 @@ mod timestamp;
 mod traits;
 mod types;
 
-pub use crate::addresses::{instantiate2_address, Addr, CanonicalAddr};
+pub use crate::addresses::{instantiate2_address, Addr, CanonicalAddr, Instantiate2AddressError};
 pub use crate::binary::Binary;
 pub use crate::coin::{coin, coins, has_coins, Coin};
 pub use crate::deps::{Deps, DepsMut, OwnedDeps};
@@ -50,6 +50,8 @@ pub use crate::math::{
     Uint256, Uint512, Uint64,
 };
 pub use crate::never::Never;
+#[cfg(feature = "cosmwasm_1_2")]
+pub use crate::query::CodeInfoResponse;
 #[cfg(feature = "cosmwasm_1_1")]
 pub use crate::query::SupplyResponse;
 pub use crate::query::{
