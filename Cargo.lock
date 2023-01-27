@@ -421,9 +421,9 @@ dependencies = [
 
 [[package]]
 name = "bumpalo"
-version = "3.9.1"
+version = "3.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4a45a46ab1f2412e53d3a0ade76ffad2025804294569aae387231a0cd6e0899"
+checksum = "0d261e256854913907f67ed06efbc3338dfe6179796deefc1ff763fc1aee5535"
 
 [[package]]
 name = "byte-slice-cast"
@@ -542,7 +542,7 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-check"
-version = "1.2.0-rc.1"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -553,7 +553,7 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-crypto"
-version = "1.2.0-rc.1"
+version = "1.2.0"
 dependencies = [
  "ark-bn254",
  "ark-crypto-primitives",
@@ -581,7 +581,7 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-derive"
-version = "1.2.0-rc.1"
+version = "1.2.0"
 dependencies = [
  "cosmwasm-std",
  "syn",
@@ -589,7 +589,7 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-schema"
-version = "1.2.0-rc.1"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "cosmwasm-schema-derive",
@@ -604,7 +604,7 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-schema-derive"
-version = "1.2.0-rc.1"
+version = "1.2.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -613,7 +613,7 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-std"
-version = "1.2.0-rc.1"
+version = "1.2.0"
 dependencies = [
  "base64",
  "chrono",
@@ -635,7 +635,7 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-storage"
-version = "1.2.0-rc.1"
+version = "1.2.0"
 dependencies = [
  "cosmwasm-std",
  "serde",
@@ -643,7 +643,7 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-vm"
-version = "1.2.0-rc.1"
+version = "1.2.0"
 dependencies = [
  "bitflags",
  "bytecheck",

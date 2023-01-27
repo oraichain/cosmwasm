@@ -6,6 +6,22 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Fixed
+
+- cosmwasm-std: Make fields of `WeightedVoteOption` public to allow constructing
+  it ([#1597]).
+
+[#1597]: https://github.com/CosmWasm/cosmwasm/issues/1597
+
+### Changed
+
+- cosmwasm-std: Improve readability of `Debug` output for `Decimal` and
+  `Decimal256` ([#1600]).
+
+[#1600]: https://github.com/CosmWasm/cosmwasm/pull/1600
+
+## [1.2.0] - 2023-01-24
+
 ### Added
 
 - cosmwasm-std: Add `GovMsg::VoteWeighted`. In order to use this in a contract,
@@ -33,11 +49,15 @@ and this project adheres to
   ([#1561]).
 - cosmwasm-vm: Add `Cache::remove_wasm` to remove obsolete Wasm blobs and their
   compiled modules.
+- cosmwasm-std: Implement fraction multiplication and division. Assists with
+  Uint & Decimal arithmetic and exposes methods for flooring/ceiling result
+  ([#1485], [#1566]).
 
 [#1436]: https://github.com/CosmWasm/cosmwasm/issues/1436
 [#1437]: https://github.com/CosmWasm/cosmwasm/issues/1437
-[#1481]: https://github.com/CosmWasm/cosmwasm/pull/1481
 [#1478]: https://github.com/CosmWasm/cosmwasm/pull/1478
+[#1481]: https://github.com/CosmWasm/cosmwasm/pull/1481
+[#1485]: https://github.com/CosmWasm/cosmwasm/issues/1485
 [#1513]: https://github.com/CosmWasm/cosmwasm/pull/1513
 [#1533]: https://github.com/CosmWasm/cosmwasm/pull/1533
 [#1550]: https://github.com/CosmWasm/cosmwasm/issues/1550
@@ -45,6 +65,7 @@ and this project adheres to
 [#1554]: https://github.com/CosmWasm/cosmwasm/pull/1554
 [#1560]: https://github.com/CosmWasm/cosmwasm/pull/1560
 [#1561]: https://github.com/CosmWasm/cosmwasm/pull/1561
+[#1566]: https://github.com/CosmWasm/cosmwasm/pull/1566
 
 ### Changed
 
@@ -1603,7 +1624,8 @@ Some main points:
 
 All future Changelog entries will reference this base
 
-[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v1.1.9...HEAD
+[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/CosmWasm/cosmwasm/compare/v1.1.9...v1.2.0
 [1.1.9]: https://github.com/CosmWasm/cosmwasm/compare/v1.1.8...v1.1.9
 [1.1.8]: https://github.com/CosmWasm/cosmwasm/compare/v1.1.6...v1.1.8
 [1.1.6]: https://github.com/CosmWasm/cosmwasm/compare/v1.1.5...v1.1.6
