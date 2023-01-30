@@ -6,6 +6,15 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.2.1] - 2023-01-30
+
+### Added
+
+- cosmwasm-std: Add `Decimal{,256}::to_uint_floor` and `::to_uint_ceil` for
+  efficient and explicit decimal to uint conversion ([#1603]).
+
+[#1603]: https://github.com/CosmWasm/cosmwasm/pull/1603
+
 ### Fixed
 
 - cosmwasm-std: Make fields of `WeightedVoteOption` public to allow constructing
@@ -1624,7 +1633,8 @@ Some main points:
 
 All future Changelog entries will reference this base
 
-[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.0...HEAD
+[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/CosmWasm/cosmwasm/compare/v1.1.9...v1.2.0
 [1.1.9]: https://github.com/CosmWasm/cosmwasm/compare/v1.1.8...v1.1.9
 [1.1.8]: https://github.com/CosmWasm/cosmwasm/compare/v1.1.6...v1.1.8
