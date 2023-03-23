@@ -6,6 +6,13 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.2.3] - 2023-03-22
+
+- cosmwasm-vm: Use saturating increments for `Stats` fields to ensure we don't
+  run into overflow issues.
+
+## [1.2.2] - 2023-03-08
+
 ### Added
 
 - cosmwasm-std: Add an IBC querier implementation to `testing::MockQuerier`
@@ -1651,7 +1658,9 @@ Some main points:
 
 All future Changelog entries will reference this base
 
-[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.1...HEAD
+[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.3...HEAD
+[1.2.3]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.2...v1.2.3
+[1.2.2]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/CosmWasm/cosmwasm/compare/v1.1.9...v1.2.0
 [1.1.9]: https://github.com/CosmWasm/cosmwasm/compare/v1.1.8...v1.1.9
