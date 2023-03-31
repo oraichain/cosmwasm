@@ -4,7 +4,7 @@ use std::cmp::max;
 
 use cosmwasm_crypto::{
     curve_hash, ed25519_batch_verify, ed25519_verify, groth16_verify, keccak_256,
-    secp256k1_recover_pubkey, secp256k1_verify, CryptoError, ZKError,
+    secp256k1_recover_pubkey, secp256k1_verify, sha256, CryptoError, ZKError,
 };
 use cosmwasm_crypto::{
     ECDSA_PUBKEY_MAX_LEN, ECDSA_SIGNATURE_LEN, EDDSA_PUBKEY_LEN, GROTH16_PROOF_LEN,
@@ -351,6 +351,22 @@ pub fn do_keccak_256<A: BackendApi, S: Storage, Q: Querier>(
     let gas_info = GasInfo::with_cost(env.gas_config.keccak_256_cost);
     process_gas_info::<A, S, Q>(env, gas_info)?;
     let hash = keccak_256(&input);
+
+    write_region(&env.memory(), hash_ptr, &hash)?;
+    Ok(0)
+}
+
+pub fn do_sha256<A: BackendApi, S: Storage, Q: Querier>(
+    env: &Environment<A, S, Q>,
+    input_ptr: u32,
+    hash_ptr: u32,
+) -> VmResult<u32> {
+    // limit to 96 bytes
+    let input = read_region(&env.memory(), input_ptr, MESSAGE_HASH_MAX_LEN * 3)?;
+
+    let gas_info = GasInfo::with_cost(env.gas_config.sha256_cost);
+    process_gas_info::<A, S, Q>(env, gas_info)?;
+    let hash = sha256(&input);
 
     write_region(&env.memory(), hash_ptr, &hash)?;
     Ok(0)

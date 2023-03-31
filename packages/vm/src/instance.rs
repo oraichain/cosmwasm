@@ -14,7 +14,7 @@ use crate::imports::{
     do_abort, do_addr_canonicalize, do_addr_humanize, do_addr_validate, do_curve_hash, do_db_read,
     do_db_remove, do_db_write, do_debug, do_ed25519_batch_verify, do_ed25519_verify,
     do_groth16_verify, do_keccak_256, do_poseidon_hash, do_query_chain,
-    do_secp256k1_recover_pubkey, do_secp256k1_verify,
+    do_secp256k1_recover_pubkey, do_secp256k1_verify, do_sha256,
 };
 #[cfg(feature = "iterator")]
 use crate::imports::{do_db_next, do_db_scan};
@@ -185,6 +185,12 @@ where
         env_imports.insert(
             "keccak_256",
             Function::new_native_with_env(store, env.clone(), do_keccak_256),
+        );
+
+        // sha256
+        env_imports.insert(
+            "sha256",
+            Function::new_native_with_env(store, env.clone(), do_sha256),
         );
 
         // curve hash

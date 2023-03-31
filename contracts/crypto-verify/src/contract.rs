@@ -2,7 +2,7 @@ use cosmwasm_std::{
     entry_point, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, QueryResponse, Response,
     StdError, StdResult, Uint128,
 };
-use sha2::{Digest, Sha256};
+
 use std::ops::Deref;
 
 use crate::ethereum::{
@@ -93,7 +93,7 @@ pub fn query_verify_cosmos(
     public_key: &[u8],
 ) -> StdResult<VerifyResponse> {
     // Hashing
-    let hash = Sha256::digest(message);
+    let hash = deps.api.sha256(message)?;
 
     // Verification
     let result = deps

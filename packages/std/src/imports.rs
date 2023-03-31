@@ -56,6 +56,8 @@ extern "C" {
     fn curve_hash(input_ptr: u32, curve_ptr: u32, hash_ptr: u32) -> u32;
     /// sha3 for ethereum
     fn keccak_256(message_ptr: u32, hash_ptr: u32) -> u32;
+    /// sha256 for cosmos
+    fn sha256(message_ptr: u32, hash_ptr: u32) -> u32;
 
     fn secp256k1_recover_pubkey(
         message_hash_ptr: u32,
@@ -349,7 +351,26 @@ impl Api for ExternalApi {
 
         let hash = alloc(32); // hash
 
-        let result = unsafe { keccak_256(msgs_send_ptr, hash as u32) };
+        let result = unsafe { keccak_256(input_send_ptr, hash as u32) };
+        if result != 0 {
+            let error = unsafe { consume_string_region_written_by_vm(result as *mut Region) };
+            return Err(StdError::generic_err(format!(
+                "keccak_256 errored: {}",
+                error
+            )));
+        }
+
+        let out = unsafe { consume_region(hash) };
+        Ok(out)
+    }
+
+    fn sha256(&self, input: &[u8]) -> StdResult<Vec<u8>> {
+        let input_send = build_region(input);
+        let input_send_ptr = &*input_send as *const Region as u32;
+
+        let hash = alloc(32); // hash
+
+        let result = unsafe { sha256(input_send_ptr, hash as u32) };
         if result != 0 {
             let error = unsafe { consume_string_region_written_by_vm(result as *mut Region) };
             return Err(StdError::generic_err(format!(

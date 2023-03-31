@@ -131,6 +131,8 @@ pub trait Api {
 
     fn keccak_256(&self, input: &[u8]) -> StdResult<Vec<u8>>;
 
+    fn sha256(&self, input: &[u8]) -> StdResult<Vec<u8>>;
+
     fn secp256k1_recover_pubkey(
         &self,
         message_hash: &[u8],

@@ -1,10 +1,15 @@
 use crate::{Bls381Fr, Bn254Fr};
 use ark_ff::{BigInteger, PrimeField};
 use ark_std::vec::Vec;
-use sha3::{Digest, Keccak256};
+use sha2::{Digest, Sha256};
+use sha3::Keccak256;
 
 pub fn keccak_256(sign_bytes: &[u8]) -> Vec<u8> {
     Keccak256::digest(sign_bytes).to_vec()
+}
+
+pub fn sha256(sign_bytes: &[u8]) -> Vec<u8> {
+    Sha256::digest(sign_bytes).to_vec()
 }
 
 pub fn curve_hash(input: &[u8], curve: u8) -> Vec<u8> {

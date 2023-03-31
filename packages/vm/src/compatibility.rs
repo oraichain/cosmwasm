@@ -26,6 +26,7 @@ const SUPPORTED_IMPORTS: &[&str] = &[
     "env.groth16_verify",
     "env.poseidon_hash",
     "env.keccak_256",
+    "env.sha256",
     "env.curve_hash",
     "env.debug",
     "env.query_chain",

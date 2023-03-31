@@ -430,6 +430,7 @@ dependencies = [
  "ed25519-zebra",
  "k256",
  "rand_core 0.6.3",
+ "sha2 0.10.3",
  "sha3",
  "thiserror",
 ]
@@ -690,7 +691,6 @@ dependencies = [
  "rlp",
  "schemars",
  "serde",
- "sha2 0.10.3",
 ]
 
 [[package]]

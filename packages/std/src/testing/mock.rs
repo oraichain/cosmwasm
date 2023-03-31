@@ -208,6 +208,10 @@ impl Api for MockApi {
         Ok(cosmwasm_crypto::keccak_256(input))
     }
 
+    fn sha256(&self, input: &[u8]) -> StdResult<Vec<u8>> {
+        Ok(cosmwasm_crypto::sha256(input))
+    }
+
     fn groth16_verify(
         &self,
         input: &[u8],

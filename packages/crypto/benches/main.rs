@@ -13,7 +13,7 @@ use sha2::Sha256;
 
 use cosmwasm_crypto::{
     curve_hash, ed25519_batch_verify, ed25519_verify, groth16_verify, keccak_256,
-    secp256k1_recover_pubkey, secp256k1_verify, Poseidon,
+    secp256k1_recover_pubkey, secp256k1_verify, sha256, Poseidon,
 };
 use std::cmp::min;
 
@@ -99,6 +99,13 @@ fn bench_crypto(c: &mut Criterion) {
         let message = hex::decode(COSMOS_SECP256K1_MSG_HEX).unwrap();
         b.iter(|| {
             assert!(!keccak_256(&message).is_empty());
+        });
+    });
+
+    group.bench_function("sha256", |b| {
+        let message = hex::decode(COSMOS_SECP256K1_MSG_HEX).unwrap();
+        b.iter(|| {
+            assert!(!sha256(&message).is_empty());
         });
     });
 
