@@ -1,6 +1,5 @@
 use cosmwasm_std::{Api, StdError, StdResult};
 use rlp::RlpStream;
-use sha3::{Digest, Keccak256};
 
 #[allow(clippy::too_many_arguments)]
 pub fn verify_transaction(
@@ -19,7 +18,7 @@ pub fn verify_transaction(
 ) -> StdResult<bool> {
     let sign_bytes =
         serialize_unsigned_transaction(to, nonce, gas, gas_price, value, data, chain_id);
-    let hash = Keccak256::digest(sign_bytes);
+    let hash = api.keccak_256(&sign_bytes)?;
     let mut rs: Vec<u8> = Vec::with_capacity(64);
     rs.resize(32 - r.len(), 0); // Left pad r to 32 bytes
     rs.extend_from_slice(r);
@@ -28,7 +27,7 @@ pub fn verify_transaction(
 
     let recovery = get_recovery_param_with_chain_id(v, chain_id)?;
     let calculated_pubkey = api.secp256k1_recover_pubkey(&hash, &rs, recovery)?;
-    let calculated_address = ethereum_address_raw(&calculated_pubkey)?;
+    let calculated_address = ethereum_address_raw(api, &calculated_pubkey)?;
     if from != calculated_address {
         return Ok(false);
     }
@@ -95,7 +94,7 @@ pub fn get_recovery_param_with_chain_id(v: u64, chain_id: u64) -> StdResult<u8> 
 }
 
 /// Returns a raw 20 byte Ethereum address
-pub fn ethereum_address_raw(pubkey: &[u8]) -> StdResult<[u8; 20]> {
+pub fn ethereum_address_raw(api: &dyn Api, pubkey: &[u8]) -> StdResult<[u8; 20]> {
     let (tag, data) = match pubkey.split_first() {
         Some(pair) => pair,
         None => return Err(StdError::generic_err("Public key must not be empty")),
@@ -107,7 +106,7 @@ pub fn ethereum_address_raw(pubkey: &[u8]) -> StdResult<[u8; 20]> {
         return Err(StdError::generic_err("Public key must be 65 bytes long"));
     }
 
-    let hash = Keccak256::digest(data);
+    let hash = api.keccak_256(data)?;
     Ok(hash[hash.len() - 20..].try_into().unwrap())
 }
 

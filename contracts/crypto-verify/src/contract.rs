@@ -3,7 +3,6 @@ use cosmwasm_std::{
     StdError, StdResult, Uint128,
 };
 use sha2::{Digest, Sha256};
-use sha3::Keccak256;
 use std::ops::Deref;
 
 use crate::ethereum::{
@@ -115,10 +114,9 @@ pub fn query_verify_ethereum_text(
     let signer_address = decode_address(signer_address)?;
 
     // Hashing
-    let mut hasher = Keccak256::new();
-    hasher.update(format!("\x19Ethereum Signed Message:\n{}", message.len()));
-    hasher.update(message);
-    let hash = hasher.finalize();
+    let hash = deps.api.keccak_256(
+        format!("\x19Ethereum Signed Message:\n{}{}", message.len(), message).as_bytes(),
+    )?;
 
     // Decompose signature
     let (v, rs) = match signature.split_last() {
@@ -129,7 +127,7 @@ pub fn query_verify_ethereum_text(
 
     // Verification
     let calculated_pubkey = deps.api.secp256k1_recover_pubkey(&hash, rs, recovery)?;
-    let calculated_address = ethereum_address_raw(&calculated_pubkey)?;
+    let calculated_address = ethereum_address_raw(deps.api, &calculated_pubkey)?;
     if signer_address != calculated_address {
         return Ok(VerifyResponse { verifies: false });
     }
