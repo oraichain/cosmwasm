@@ -49,11 +49,13 @@ extern "C" {
     fn secp256k1_verify(message_hash_ptr: u32, signature_ptr: u32, public_key_ptr: u32) -> u32;
 
     /// Verifies groth 16
-    fn groth16_verify(input_ptr: u32, proof_ptr: u32, vk_ptr: u32) -> u32;
+    fn groth16_verify(input_ptr: u32, proof_ptr: u32, vk_ptr: u32, curve_ptr: u32) -> u32;
     /// poseidon hash
-    fn poseidon_hash(inputs_ptr: u32, hash_ptr: u32) -> u32;
+    fn poseidon_hash(inputs_ptr: u32, curve_ptr: u32, hash_ptr: u32) -> u32;
     /// on curve hash
-    fn curve_hash(input_ptr: u32, hash_ptr: u32) -> u32;
+    fn curve_hash(input_ptr: u32, curve_ptr: u32, hash_ptr: u32) -> u32;
+    /// sha3 for ethereum
+    fn keccak_256(message_ptr: u32, hash_ptr: u32) -> u32;
 
     fn secp256k1_recover_pubkey(
         message_hash_ptr: u32,
@@ -282,6 +284,7 @@ impl Api for ExternalApi {
         input: &[u8],
         proof: &[u8],
         vk: &[u8],
+        curve: u8,
     ) -> Result<bool, VerificationError> {
         let input_send = build_region(input);
         let input_send_ptr = &*input_send as *const Region as u32;
@@ -290,7 +293,8 @@ impl Api for ExternalApi {
         let vk_send = build_region(vk);
         let vk_send_ptr = &*vk_send as *const Region as u32;
 
-        let result = unsafe { groth16_verify(input_send_ptr, proof_send_ptr, vk_send_ptr) };
+        let result =
+            unsafe { groth16_verify(input_send_ptr, proof_send_ptr, vk_send_ptr, curve.into()) };
         match result {
             0 => Ok(true),
             1 => Ok(false),
@@ -300,14 +304,14 @@ impl Api for ExternalApi {
         }
     }
 
-    fn poseidon_hash(&self, inputs: &[&[u8]]) -> StdResult<Vec<u8>> {
+    fn poseidon_hash(&self, inputs: &[&[u8]], curve: u8) -> StdResult<Vec<u8>> {
         let msgs_encoded = encode_sections(inputs);
         let msgs_send = build_region(&msgs_encoded);
         let msgs_send_ptr = &*msgs_send as *const Region as u32;
 
         let hash = alloc(32); // hash
 
-        let result = unsafe { poseidon_hash(msgs_send_ptr, hash as u32) };
+        let result = unsafe { poseidon_hash(msgs_send_ptr, hash as u32, curve.into()) };
         if result != 0 {
             let error = unsafe { consume_string_region_written_by_vm(result as *mut Region) };
             return Err(StdError::generic_err(format!(
@@ -320,17 +324,36 @@ impl Api for ExternalApi {
         Ok(out)
     }
 
-    fn curve_hash(&self, input: &[u8]) -> StdResult<Vec<u8>> {
+    fn curve_hash(&self, input: &[u8], curve: u8) -> StdResult<Vec<u8>> {
         let input_send = build_region(input);
         let input_send_ptr = &*input_send as *const Region as u32;
 
         let hash = alloc(32); // hash
 
-        let result = unsafe { curve_hash(input_send_ptr, hash as u32) };
+        let result = unsafe { curve_hash(input_send_ptr, hash as u32, curve.into()) };
         if result != 0 {
             let error = unsafe { consume_string_region_written_by_vm(result as *mut Region) };
             return Err(StdError::generic_err(format!(
                 "curve_hash errored: {}",
+                error
+            )));
+        }
+
+        let out = unsafe { consume_region(hash) };
+        Ok(out)
+    }
+
+    fn keccak_256(&self, input: &[u8]) -> StdResult<Vec<u8>> {
+        let input_send = build_region(input);
+        let input_send_ptr = &*input_send as *const Region as u32;
+
+        let hash = alloc(32); // hash
+
+        let result = unsafe { keccak_256(msgs_send_ptr, hash as u32) };
+        if result != 0 {
+            let error = unsafe { consume_string_region_written_by_vm(result as *mut Region) };
+            return Err(StdError::generic_err(format!(
+                "keccak_256 errored: {}",
                 error
             )));
         }

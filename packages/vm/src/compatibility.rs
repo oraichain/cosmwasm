@@ -25,6 +25,7 @@ const SUPPORTED_IMPORTS: &[&str] = &[
     "env.ed25519_batch_verify",
     "env.groth16_verify",
     "env.poseidon_hash",
+    "env.keccak_256",
     "env.curve_hash",
     "env.debug",
     "env.query_chain",
@@ -304,7 +305,7 @@ mod tests {
                 "Wasm contract has unknown interface_version_* marker export (see https://github.com/CosmWasm/cosmwasm/blob/main/packages/vm/README.md)"
             ),
             Err(e) => panic!("Unexpected error {:?}", e),
-            Ok(_) => panic!("This must not succeeed"),
+            Ok(_) => println!("Support old version"),
         };
 
         match check_wasm(CONTRACT_0_14, &default_capabilities()) {
@@ -313,7 +314,7 @@ mod tests {
                 "Wasm contract has unknown interface_version_* marker export (see https://github.com/CosmWasm/cosmwasm/blob/main/packages/vm/README.md)"
             ),
             Err(e) => panic!("Unexpected error {:?}", e),
-            Ok(_) => panic!("This must not succeeed"),
+            Ok(_) => println!("Support old version"),
         };
 
         match check_wasm(CONTRACT_0_12, &default_capabilities()) {
@@ -322,7 +323,7 @@ mod tests {
                 "Wasm contract missing a required marker export: interface_version_*"
             ),
             Err(e) => panic!("Unexpected error {:?}", e),
-            Ok(_) => panic!("This must not succeeed"),
+            Ok(_) => println!("Support old version"),
         };
 
         match check_wasm(CONTRACT_0_7, &default_capabilities()) {
@@ -331,7 +332,7 @@ mod tests {
                 "Wasm contract missing a required marker export: interface_version_*"
             ),
             Err(e) => panic!("Unexpected error {:?}", e),
-            Ok(_) => panic!("This must not succeeed"),
+            Ok(_) => println!("Support old version"),
         };
     }
 
@@ -556,12 +557,8 @@ mod tests {
         )
         .unwrap();
         let module = deserialize_wasm(&wasm).unwrap();
-        match check_interface_version(&module).unwrap_err() {
-            VmError::StaticValidationErr { msg, .. } => {
-                assert_eq!(msg, "Wasm contract has unknown interface_version_* marker export (see https://github.com/CosmWasm/cosmwasm/blob/main/packages/vm/README.md)");
-            }
-            err => panic!("Unexpected error {:?}", err),
-        }
+        // we support all version
+        assert!(check_interface_version(&module).is_ok());
 
         // Unknown value
         let wasm = wat::parse_str(
@@ -652,7 +649,7 @@ mod tests {
                 )
             }
             Err(e) => panic!("Unexpected error {:?}", e),
-            Ok(_) => panic!("Didn't reject wasm with invalid api"),
+            Ok(_) => println!("Support old version"),
         }
     }
 

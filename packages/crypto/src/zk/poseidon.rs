@@ -1,52 +1,78 @@
-use ark_bn254::Fr as Bn254Fr;
+use crate::{Bls381Fr, Bn254Fr};
 use ark_ff::{BigInteger, PrimeField};
 use ark_std::vec::Vec;
-use arkworks_native_gadgets::poseidon::{FieldHasher, Poseidon as ArkworksPoseidon};
+use arkworks_native_gadgets::poseidon::sbox::PoseidonSbox;
+use arkworks_native_gadgets::poseidon::{
+    FieldHasher, Poseidon as ArkworksPoseidon, PoseidonParameters,
+};
 use arkworks_native_gadgets::to_field_elements;
-use arkworks_setups::common::setup_params;
-use arkworks_setups::Curve;
+use arkworks_utils::poseidon_params::setup_poseidon_params;
+use arkworks_utils::{bytes_matrix_to_f, bytes_vec_to_f, Curve};
 
 use crate::ZKError;
 
-pub type PoseidonHasher = ArkworksPoseidon<Bn254Fr>;
+pub type PoseidonHasherBn254 = ArkworksPoseidon<Bn254Fr>;
+pub type PoseidonHasherBls381 = ArkworksPoseidon<Bls381Fr>;
 
 #[derive(Debug, Clone)]
 pub struct Poseidon {
-    poseidon_width_3_bytes: PoseidonHasher,
-    poseidon_width_4_bytes: PoseidonHasher,
-    poseidon_width_5_bytes: PoseidonHasher,
+    poseidon_width_3_bytes_bn254: PoseidonHasherBn254,
+    poseidon_width_3_bytes_bls381: PoseidonHasherBls381,
+}
+
+fn inner_hash<F: PrimeField>(
+    hasher: &ArkworksPoseidon<F>,
+    inputs: &[&[u8]],
+) -> Result<Vec<u8>, ZKError> {
+    let mut packed_inputs = Vec::new();
+    for &inp in inputs {
+        packed_inputs.extend_from_slice(inp);
+    }
+
+    let input_f =
+        to_field_elements(&packed_inputs).map_err(|err| ZKError::generic_err(err.to_string()))?;
+
+    let hash_result = hasher.hash(&input_f);
+
+    hash_result
+        .map(|h| h.into_repr().to_bytes_le())
+        .map_err(|err| ZKError::generic_err(err.to_string()))
+}
+
+pub fn setup_params<F: PrimeField>(curve: Curve, exp: i8, width: u8) -> PoseidonParameters<F> {
+    let pos_data = setup_poseidon_params(curve, exp, width).unwrap();
+
+    let mds_f = bytes_matrix_to_f(&pos_data.mds);
+    let rounds_f = bytes_vec_to_f(&pos_data.rounds);
+
+    let pos = PoseidonParameters {
+        mds_matrix: mds_f,
+        round_keys: rounds_f,
+        full_rounds: pos_data.full_rounds,
+        partial_rounds: pos_data.partial_rounds,
+        sbox: PoseidonSbox(pos_data.exp),
+        width: pos_data.width,
+    };
+
+    pos
 }
 
 impl Poseidon {
     pub fn new() -> Self {
         Self {
-            poseidon_width_3_bytes: PoseidonHasher::new(setup_params(Curve::Bn254, 5, 3)),
-            poseidon_width_4_bytes: PoseidonHasher::new(setup_params(Curve::Bn254, 5, 4)),
-            poseidon_width_5_bytes: PoseidonHasher::new(setup_params(Curve::Bn254, 5, 5)),
+            poseidon_width_3_bytes_bn254: ArkworksPoseidon::new(setup_params(Curve::Bn254, 5, 3)),
+            poseidon_width_3_bytes_bls381: ArkworksPoseidon::new(setup_params(Curve::Bls381, 5, 3)),
         }
     }
 
-    pub fn hash(&self, inputs: &[&[u8]]) -> Result<Vec<u8>, ZKError> {
+    pub fn hash(&self, inputs: &[&[u8]], curve: u8) -> Result<Vec<u8>, ZKError> {
         let num_inputs = inputs.len();
-        let mut packed_inputs = Vec::new();
 
-        for &inp in inputs {
-            packed_inputs.extend_from_slice(inp);
+        match (num_inputs, curve) {
+            (2, 0) => inner_hash(&self.poseidon_width_3_bytes_bls381, &inputs),
+            (2, 1) => inner_hash(&self.poseidon_width_3_bytes_bn254, &inputs),
+            _ => Err(ZKError::InvalidHashInput {}),
         }
-
-        let input_f = to_field_elements(&packed_inputs)
-            .map_err(|err| ZKError::generic_err(err.to_string()))?;
-
-        let hash_result = match num_inputs {
-            2 => self.poseidon_width_3_bytes.hash(&input_f),
-            3 => self.poseidon_width_4_bytes.hash(&input_f),
-            4 => self.poseidon_width_5_bytes.hash(&input_f),
-            _ => return Err(ZKError::InvalidHashInput {}),
-        };
-
-        hash_result
-            .map(|h| h.into_repr().to_bytes_le())
-            .map_err(|err| ZKError::generic_err(err.to_string()))
     }
 }
 
@@ -61,6 +87,6 @@ fn test_hash() {
     let p = Poseidon::new();
     let commitment_hash =
         hex::decode("84d6bdcfd953993012f08970d9c9b472d96114b4edc69481968cafc07877381c").unwrap();
-    let ret = p.hash(&[&commitment_hash, &commitment_hash]);
+    let ret = p.hash(&[&commitment_hash, &commitment_hash], 0);
     assert!(ret.is_ok())
 }

@@ -22,6 +22,7 @@ bench = false
 k256 = { version = "0.11.1", features = ["ecdsa"] }
 ed25519-zebra = "3"
 digest = "0.10"
+sha3 = "0.10"
 rand_core = { version = "0.6", features = ["getrandom"] }
 thiserror = "1.0.38"
 
@@ -29,9 +30,9 @@ thiserror = "1.0.38"
 ark-ff = { version = "^0.3.0", default-features = false }
 ark-std = { version = "^0.3.0", default-features = false }
 ark-bn254 = { version = "^0.3.0", default-features = false, features = [ "curve" ] }
+ark-bls12-381 = { version = "^0.3.0", default-features = false, features = [ "curve" ] }
 ark-crypto-primitives = { version = "^0.3.0", features = ["r1cs"], default-features = false }
-
-arkworks-setups = { version = "=1.0.0", features = ["r1cs"], default-features = false }
+arkworks-utils = { version = "=1.0.0", features = ["poseidon_bn254_x5_3","poseidon_bls381_x5_3"], default-features = false }
 arkworks-native-gadgets = { version = "=1.0.0", default-features = false }
 
 ark-ec = { version = "^0.3.0", default-features = false }
