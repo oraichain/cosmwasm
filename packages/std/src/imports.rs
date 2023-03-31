@@ -328,8 +328,8 @@ impl Api for ExternalApi {
             poseidon_hash(
                 input_left_send_ptr,
                 input_right_send_ptr,
-                hash as u32,
                 curve.into(),
+                hash as u32,
             )
         };
         if result != 0 {
@@ -350,7 +350,7 @@ impl Api for ExternalApi {
 
         let hash = alloc(32); // hash
 
-        let result = unsafe { curve_hash(input_send_ptr, hash as u32, curve.into()) };
+        let result = unsafe { curve_hash(input_send_ptr, curve.into(), hash as u32) };
         if result != 0 {
             let error = unsafe { consume_string_region_written_by_vm(result as *mut Region) };
             return Err(StdError::generic_err(format!(
