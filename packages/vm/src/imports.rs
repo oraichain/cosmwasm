@@ -259,14 +259,14 @@ pub fn do_groth16_verify<A: BackendApi, S: Storage, Q: Querier>(
     input_ptr: u32,
     proof_ptr: u32,
     vk_ptr: u32,
-    curve_ptr: u32,
+    curve: u32,
 ) -> VmResult<u32> {
     // nullifier hash + root hash + arbitrary hash
     let input = read_region(&env.memory(), input_ptr, MESSAGE_HASH_MAX_LEN * 3)?;
     let proof = read_region(&env.memory(), proof_ptr, GROTH16_PROOF_LEN)?;
     let vk = read_region(&env.memory(), vk_ptr, GROTH16_VERIFIER_KEY_LEN)?;
 
-    let curve: u8 = match curve_ptr.try_into() {
+    let curve: u8 = match curve.try_into() {
         Ok(rp) => rp,
         Err(_) => return Ok(CryptoError::invalid_recovery_param().code()),
     };
@@ -289,7 +289,7 @@ pub fn do_poseidon_hash<A: BackendApi, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     left_input_ptr: u32,
     right_input_ptr: u32,
-    curve_ptr: u32,
+    curve: u32,
     hash_ptr: u32,
 ) -> VmResult<u32> {
     // limit to 128 bytes
@@ -297,7 +297,7 @@ pub fn do_poseidon_hash<A: BackendApi, S: Storage, Q: Querier>(
     let left_input = read_region(&env.memory(), left_input_ptr, MESSAGE_HASH_MAX_LEN * 2)?;
     let right_input = read_region(&env.memory(), right_input_ptr, MESSAGE_HASH_MAX_LEN * 2)?;
 
-    let curve: u8 = match curve_ptr.try_into() {
+    let curve: u8 = match curve.try_into() {
         Ok(rp) => rp,
         Err(_) => return Ok(CryptoError::invalid_recovery_param().code()),
     };
@@ -320,13 +320,13 @@ pub fn do_poseidon_hash<A: BackendApi, S: Storage, Q: Querier>(
 pub fn do_curve_hash<A: BackendApi, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     input_ptr: u32,
-    curve_ptr: u32,
+    curve: u32,
     hash_ptr: u32,
 ) -> VmResult<u32> {
     // limit to 96 bytes
     let input = read_region(&env.memory(), input_ptr, MESSAGE_HASH_MAX_LEN * 3)?;
 
-    let curve: u8 = match curve_ptr.try_into() {
+    let curve: u8 = match curve.try_into() {
         Ok(rp) => rp,
         Err(_) => return Ok(CryptoError::invalid_recovery_param().code()),
     };

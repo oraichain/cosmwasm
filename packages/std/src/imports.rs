@@ -49,16 +49,11 @@ extern "C" {
     fn secp256k1_verify(message_hash_ptr: u32, signature_ptr: u32, public_key_ptr: u32) -> u32;
 
     /// Verifies groth 16
-    fn groth16_verify(input_ptr: u32, proof_ptr: u32, vk_ptr: u32, curve_ptr: u32) -> u32;
+    fn groth16_verify(input_ptr: u32, proof_ptr: u32, vk_ptr: u32, curve: u32) -> u32;
     /// poseidon hash
-    fn poseidon_hash(
-        left_input_ptr: u32,
-        right_input_ptr: u32,
-        curve_ptr: u32,
-        hash_ptr: u32,
-    ) -> u32;
+    fn poseidon_hash(left_input_ptr: u32, right_input_ptr: u32, curve: u32, hash_ptr: u32) -> u32;
     /// on curve hash
-    fn curve_hash(input_ptr: u32, curve_ptr: u32, hash_ptr: u32) -> u32;
+    fn curve_hash(input_ptr: u32, curve: u32, hash_ptr: u32) -> u32;
     /// sha3 for ethereum
     fn keccak_256(message_ptr: u32, hash_ptr: u32) -> u32;
     /// sha256 for cosmos
@@ -67,7 +62,7 @@ extern "C" {
     fn secp256k1_recover_pubkey(
         message_hash_ptr: u32,
         signature_ptr: u32,
-        recovery_param: u32,
+        recover_param: u32,
     ) -> u64;
 
     /// Verifies a message against a signature with a public key, using the
