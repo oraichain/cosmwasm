@@ -277,9 +277,9 @@ pub fn do_groth16_verify<A: BackendApi, S: Storage, Q: Querier>(
 
     Ok(result.map_or_else(
         |err| match err {
-            ZKError::VerifierError {}
-            | ZKError::InvalidHashInput {}
-            | ZKError::GenericErr { .. } => err.code(), // still return code, meaning verify is failed
+            ZKError::VerifierError {} | ZKError::Unimplemented {} | ZKError::GenericErr { .. } => {
+                err.code()
+            } // still return code, meaning verify is failed
         },
         |valid| if valid { 0 } else { 1 },
     ))
@@ -287,16 +287,15 @@ pub fn do_groth16_verify<A: BackendApi, S: Storage, Q: Querier>(
 
 pub fn do_poseidon_hash<A: BackendApi, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
-    inputs_ptr: u32,
+    left_input_ptr: u32,
+    right_input_ptr: u32,
     curve_ptr: u32,
     hash_ptr: u32,
 ) -> VmResult<u32> {
     // limit to 128 bytes
-    let inputs = read_region(
-        &env.memory(),
-        inputs_ptr,
-        (MESSAGE_HASH_MAX_LEN) * 4, // maximum 4 inputs
-    )?;
+
+    let left_input = read_region(&env.memory(), left_input_ptr, MESSAGE_HASH_MAX_LEN * 2)?;
+    let right_input = read_region(&env.memory(), right_input_ptr, MESSAGE_HASH_MAX_LEN * 2)?;
 
     let curve: u8 = match curve_ptr.try_into() {
         Ok(rp) => rp,
@@ -305,7 +304,7 @@ pub fn do_poseidon_hash<A: BackendApi, S: Storage, Q: Querier>(
 
     let gas_info = GasInfo::with_cost(env.gas_config.poseidon_hash_cost);
     process_gas_info::<A, S, Q>(env, gas_info)?;
-    let result = env.poseidon.hash(&decode_sections(&inputs), curve);
+    let result = env.poseidon.hash(&left_input, &right_input, curve);
 
     match result {
         Ok(hash) => {

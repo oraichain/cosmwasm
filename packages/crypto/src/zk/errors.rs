@@ -13,8 +13,8 @@ pub enum ZKError {
         backtrace: Backtrace,
     },
 
-    #[error("Invalid hash input")]
-    InvalidHashInput {},
+    #[error("Curve is unimplemented")]
+    Unimplemented {},
 
     #[error("ZK error: {msg}")]
     GenericErr {
@@ -38,7 +38,7 @@ impl ZKError {
     pub fn code(&self) -> u32 {
         match self {
             ZKError::VerifierError { .. } => 3,
-            ZKError::InvalidHashInput { .. } => 4,
+            ZKError::Unimplemented { .. } => 4,
             ZKError::GenericErr { .. } => 10,
         }
     }

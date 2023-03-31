@@ -16,8 +16,8 @@ pub type PoseidonHasherBls381 = ArkworksPoseidon<Bls381Fr>;
 
 #[derive(Debug, Clone)]
 pub struct Poseidon {
-    poseidon_width_3_bytes_bn254: PoseidonHasherBn254,
-    poseidon_width_3_bytes_bls381: PoseidonHasherBls381,
+    hasher_bn254: PoseidonHasherBn254,
+    hasher_bls381: PoseidonHasherBls381,
 }
 
 fn inner_hash<F: PrimeField>(
@@ -60,18 +60,23 @@ pub fn setup_params<F: PrimeField>(curve: Curve, exp: i8, width: u8) -> Poseidon
 impl Poseidon {
     pub fn new() -> Self {
         Self {
-            poseidon_width_3_bytes_bn254: ArkworksPoseidon::new(setup_params(Curve::Bn254, 5, 3)),
-            poseidon_width_3_bytes_bls381: ArkworksPoseidon::new(setup_params(Curve::Bls381, 5, 3)),
+            hasher_bn254: ArkworksPoseidon::new(setup_params(Curve::Bn254, 5, 3)),
+            hasher_bls381: ArkworksPoseidon::new(setup_params(Curve::Bls381, 5, 3)),
         }
     }
 
-    pub fn hash(&self, inputs: &[&[u8]], curve: u8) -> Result<Vec<u8>, ZKError> {
-        let num_inputs = inputs.len();
+    pub fn hash(
+        &self,
+        left_input: &[u8],
+        right_input: &[u8],
+        curve: u8,
+    ) -> Result<Vec<u8>, ZKError> {
+        let inputs = &[left_input, right_input];
 
-        match (num_inputs, curve) {
-            (2, 0) => inner_hash(&self.poseidon_width_3_bytes_bls381, &inputs),
-            (2, 1) => inner_hash(&self.poseidon_width_3_bytes_bn254, &inputs),
-            _ => Err(ZKError::InvalidHashInput {}),
+        match curve {
+            0 => inner_hash(&self.hasher_bls381, inputs),
+            1 => inner_hash(&self.hasher_bn254, inputs),
+            _ => Err(ZKError::Unimplemented {}),
         }
     }
 }
@@ -87,6 +92,6 @@ fn test_hash() {
     let p = Poseidon::new();
     let commitment_hash =
         hex::decode("84d6bdcfd953993012f08970d9c9b472d96114b4edc69481968cafc07877381c").unwrap();
-    let ret = p.hash(&[&commitment_hash, &commitment_hash], 0);
+    let ret = p.hash(&commitment_hash, &commitment_hash, 0);
     assert!(ret.is_ok())
 }

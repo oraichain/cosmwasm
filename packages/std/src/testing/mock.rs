@@ -193,8 +193,13 @@ impl Api for MockApi {
         )?)
     }
 
-    fn poseidon_hash(&self, inputs: &[&[u8]], curve: u8) -> StdResult<Vec<u8>> {
-        match self.poseidon.hash(inputs, curve) {
+    fn poseidon_hash(
+        &self,
+        left_input: &[u8],
+        right_input: &[u8],
+        curve: u8,
+    ) -> StdResult<Vec<u8>> {
+        match self.poseidon.hash(left_input, right_input, curve) {
             Ok(hash) => Ok(hash.to_vec()),
             Err(_) => return Err(StdError::generic_err("poseidon hash error")),
         }

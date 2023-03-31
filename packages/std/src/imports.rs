@@ -51,7 +51,12 @@ extern "C" {
     /// Verifies groth 16
     fn groth16_verify(input_ptr: u32, proof_ptr: u32, vk_ptr: u32, curve_ptr: u32) -> u32;
     /// poseidon hash
-    fn poseidon_hash(inputs_ptr: u32, curve_ptr: u32, hash_ptr: u32) -> u32;
+    fn poseidon_hash(
+        left_input_ptr: u32,
+        right_input_ptr: u32,
+        curve_ptr: u32,
+        hash_ptr: u32,
+    ) -> u32;
     /// on curve hash
     fn curve_hash(input_ptr: u32, curve_ptr: u32, hash_ptr: u32) -> u32;
     /// sha3 for ethereum
@@ -306,14 +311,27 @@ impl Api for ExternalApi {
         }
     }
 
-    fn poseidon_hash(&self, inputs: &[&[u8]], curve: u8) -> StdResult<Vec<u8>> {
-        let msgs_encoded = encode_sections(inputs);
-        let msgs_send = build_region(&msgs_encoded);
-        let msgs_send_ptr = &*msgs_send as *const Region as u32;
+    fn poseidon_hash(
+        &self,
+        left_input: &[u8],
+        right_input: &[u8],
+        curve: u8,
+    ) -> StdResult<Vec<u8>> {
+        let input_left_send = build_region(left_input);
+        let input_left_send_ptr = &*input_left_send as *const Region as u32;
+        let input_right_send = build_region(right_input);
+        let input_right_send_ptr = &*input_right_send as *const Region as u32;
 
         let hash = alloc(32); // hash
 
-        let result = unsafe { poseidon_hash(msgs_send_ptr, hash as u32, curve.into()) };
+        let result = unsafe {
+            poseidon_hash(
+                input_left_send_ptr,
+                input_right_send_ptr,
+                hash as u32,
+                curve.into(),
+            )
+        };
         if result != 0 {
             let error = unsafe { consume_string_region_written_by_vm(result as *mut Region) };
             return Err(StdError::generic_err(format!(

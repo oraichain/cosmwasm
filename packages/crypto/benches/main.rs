@@ -129,9 +129,7 @@ fn bench_crypto(c: &mut Criterion) {
         let commitment_hash = hex::decode(COMMITMENT).unwrap();
         let poseidon = Poseidon::new();
         b.iter(|| {
-            assert!(poseidon
-                .hash(&[&commitment_hash, &commitment_hash], 0)
-                .is_ok());
+            assert!(poseidon.hash(&commitment_hash, &commitment_hash, 0).is_ok());
         });
     });
 
@@ -139,9 +137,7 @@ fn bench_crypto(c: &mut Criterion) {
         let commitment_hash = hex::decode(COMMITMENT).unwrap();
         let poseidon = Poseidon::new();
         b.iter(|| {
-            assert!(poseidon
-                .hash(&[&commitment_hash, &commitment_hash], 1)
-                .is_ok());
+            assert!(poseidon.hash(&commitment_hash, &commitment_hash, 1).is_ok());
         });
     });
 

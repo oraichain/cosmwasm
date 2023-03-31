@@ -117,6 +117,12 @@ pub trait Api {
         public_key: &[u8],
     ) -> Result<bool, VerificationError>;
 
+    /// Do groth 16 verify
+    ///
+    /// # Arguments
+    ///
+    /// * `curve`: 0: Curve::Bls12_381, 1: Curve::Bn254   
+    /// ```
     fn groth16_verify(
         &self,
         input: &[u8],
@@ -125,8 +131,21 @@ pub trait Api {
         curve: u8,
     ) -> Result<bool, VerificationError>;
 
-    fn poseidon_hash(&self, inputs: &[&[u8]], curve: u8) -> StdResult<Vec<u8>>;
+    /// Calculate poseidon hash
+    ///
+    /// # Arguments
+    ///
+    /// * `curve`: 0: Curve::Bls12_381, 1: Curve::Bn254   
+    /// ```
+    fn poseidon_hash(&self, left_input: &[u8], right_input: &[u8], curve: u8)
+        -> StdResult<Vec<u8>>;
 
+    /// Calculate curve hash
+    ///
+    /// # Arguments
+    ///
+    /// * `curve`: 0: Curve::Bls12_381, 1: Curve::Bn254   
+    /// ```
     fn curve_hash(&self, input: &[u8], curve: u8) -> StdResult<Vec<u8>>;
 
     fn keccak_256(&self, input: &[u8]) -> StdResult<Vec<u8>>;
