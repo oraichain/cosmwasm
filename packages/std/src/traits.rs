@@ -122,11 +122,16 @@ pub trait Api {
         input: &[u8],
         proof: &[u8],
         vk: &[u8],
+        curve: u8,
     ) -> Result<bool, VerificationError>;
 
-    fn poseidon_hash(&self, inputs: &[&[u8]]) -> StdResult<Vec<u8>>;
+    fn poseidon_hash(&self, inputs: &[&[u8]], curve: u8) -> StdResult<Vec<u8>>;
 
-    fn curve_hash(&self, input: &[u8]) -> StdResult<Vec<u8>>;
+    fn curve_hash(&self, input: &[u8], curve: u8) -> StdResult<Vec<u8>>;
+
+    fn keccak_256(&self, input: &[u8]) -> StdResult<Vec<u8>>;
+
+    fn sha256(&self, input: &[u8]) -> StdResult<Vec<u8>>;
 
     fn secp256k1_recover_pubkey(
         &self,

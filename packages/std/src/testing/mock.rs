@@ -193,15 +193,23 @@ impl Api for MockApi {
         )?)
     }
 
-    fn poseidon_hash(&self, inputs: &[&[u8]]) -> StdResult<Vec<u8>> {
-        match self.poseidon.hash(inputs) {
+    fn poseidon_hash(&self, inputs: &[&[u8]], curve: u8) -> StdResult<Vec<u8>> {
+        match self.poseidon.hash(inputs, curve) {
             Ok(hash) => Ok(hash.to_vec()),
             Err(_) => return Err(StdError::generic_err("poseidon hash error")),
         }
     }
 
-    fn curve_hash(&self, input: &[u8]) -> StdResult<Vec<u8>> {
-        Ok(cosmwasm_crypto::curve_hash(input))
+    fn curve_hash(&self, input: &[u8], curve: u8) -> StdResult<Vec<u8>> {
+        Ok(cosmwasm_crypto::curve_hash(input, curve))
+    }
+
+    fn keccak_256(&self, input: &[u8]) -> StdResult<Vec<u8>> {
+        Ok(cosmwasm_crypto::keccak_256(input))
+    }
+
+    fn sha256(&self, input: &[u8]) -> StdResult<Vec<u8>> {
+        Ok(cosmwasm_crypto::sha256(input))
     }
 
     fn groth16_verify(
@@ -209,8 +217,9 @@ impl Api for MockApi {
         input: &[u8],
         proof: &[u8],
         vk: &[u8],
+        curve: u8,
     ) -> Result<bool, VerificationError> {
-        cosmwasm_crypto::groth16_verify(input, proof, vk)
+        cosmwasm_crypto::groth16_verify(input, proof, vk, curve)
             .map_err(|_| VerificationError::GenericErr {})
     }
 

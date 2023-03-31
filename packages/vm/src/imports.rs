@@ -3,8 +3,8 @@
 use std::cmp::max;
 
 use cosmwasm_crypto::{
-    curve_hash, ed25519_batch_verify, ed25519_verify, groth16_verify, secp256k1_recover_pubkey,
-    secp256k1_verify, CryptoError, ZKError,
+    curve_hash, ed25519_batch_verify, ed25519_verify, groth16_verify, keccak_256,
+    secp256k1_recover_pubkey, secp256k1_verify, sha256, CryptoError, ZKError,
 };
 use cosmwasm_crypto::{
     ECDSA_PUBKEY_MAX_LEN, ECDSA_SIGNATURE_LEN, EDDSA_PUBKEY_LEN, GROTH16_PROOF_LEN,
@@ -259,15 +259,21 @@ pub fn do_groth16_verify<A: BackendApi, S: Storage, Q: Querier>(
     input_ptr: u32,
     proof_ptr: u32,
     vk_ptr: u32,
+    curve_ptr: u32,
 ) -> VmResult<u32> {
     // nullifier hash + root hash + arbitrary hash
     let input = read_region(&env.memory(), input_ptr, MESSAGE_HASH_MAX_LEN * 3)?;
     let proof = read_region(&env.memory(), proof_ptr, GROTH16_PROOF_LEN)?;
     let vk = read_region(&env.memory(), vk_ptr, GROTH16_VERIFIER_KEY_LEN)?;
 
+    let curve: u8 = match curve_ptr.try_into() {
+        Ok(rp) => rp,
+        Err(_) => return Ok(CryptoError::invalid_recovery_param().code()),
+    };
+
     let gas_info = GasInfo::with_cost(env.gas_config.groth16_verify_cost);
     process_gas_info::<A, S, Q>(env, gas_info)?;
-    let result = groth16_verify(&input, &proof, &vk);
+    let result = groth16_verify(&input, &proof, &vk, curve);
 
     Ok(result.map_or_else(
         |err| match err {
@@ -282,6 +288,7 @@ pub fn do_groth16_verify<A: BackendApi, S: Storage, Q: Querier>(
 pub fn do_poseidon_hash<A: BackendApi, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     inputs_ptr: u32,
+    curve_ptr: u32,
     hash_ptr: u32,
 ) -> VmResult<u32> {
     // limit to 128 bytes
@@ -291,9 +298,14 @@ pub fn do_poseidon_hash<A: BackendApi, S: Storage, Q: Querier>(
         (MESSAGE_HASH_MAX_LEN) * 4, // maximum 4 inputs
     )?;
 
+    let curve: u8 = match curve_ptr.try_into() {
+        Ok(rp) => rp,
+        Err(_) => return Ok(CryptoError::invalid_recovery_param().code()),
+    };
+
     let gas_info = GasInfo::with_cost(env.gas_config.poseidon_hash_cost);
     process_gas_info::<A, S, Q>(env, gas_info)?;
-    let result = env.poseidon.hash(&decode_sections(&inputs));
+    let result = env.poseidon.hash(&decode_sections(&inputs), curve);
 
     match result {
         Ok(hash) => {
@@ -309,14 +321,52 @@ pub fn do_poseidon_hash<A: BackendApi, S: Storage, Q: Querier>(
 pub fn do_curve_hash<A: BackendApi, S: Storage, Q: Querier>(
     env: &Environment<A, S, Q>,
     input_ptr: u32,
+    curve_ptr: u32,
     hash_ptr: u32,
 ) -> VmResult<u32> {
     // limit to 96 bytes
     let input = read_region(&env.memory(), input_ptr, MESSAGE_HASH_MAX_LEN * 3)?;
 
+    let curve: u8 = match curve_ptr.try_into() {
+        Ok(rp) => rp,
+        Err(_) => return Ok(CryptoError::invalid_recovery_param().code()),
+    };
+
     let gas_info = GasInfo::with_cost(env.gas_config.curve_hash_cost);
     process_gas_info::<A, S, Q>(env, gas_info)?;
-    let hash = curve_hash(&input);
+    let hash = curve_hash(&input, curve);
+
+    write_region(&env.memory(), hash_ptr, &hash)?;
+    Ok(0)
+}
+
+pub fn do_keccak_256<A: BackendApi, S: Storage, Q: Querier>(
+    env: &Environment<A, S, Q>,
+    input_ptr: u32,
+    hash_ptr: u32,
+) -> VmResult<u32> {
+    // limit to 96 bytes
+    let input = read_region(&env.memory(), input_ptr, MESSAGE_HASH_MAX_LEN * 3)?;
+
+    let gas_info = GasInfo::with_cost(env.gas_config.keccak_256_cost);
+    process_gas_info::<A, S, Q>(env, gas_info)?;
+    let hash = keccak_256(&input);
+
+    write_region(&env.memory(), hash_ptr, &hash)?;
+    Ok(0)
+}
+
+pub fn do_sha256<A: BackendApi, S: Storage, Q: Querier>(
+    env: &Environment<A, S, Q>,
+    input_ptr: u32,
+    hash_ptr: u32,
+) -> VmResult<u32> {
+    // limit to 96 bytes
+    let input = read_region(&env.memory(), input_ptr, MESSAGE_HASH_MAX_LEN * 3)?;
+
+    let gas_info = GasInfo::with_cost(env.gas_config.sha256_cost);
+    process_gas_info::<A, S, Q>(env, gas_info)?;
+    let hash = sha256(&input);
 
     write_region(&env.memory(), hash_ptr, &hash)?;
     Ok(0)

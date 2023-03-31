@@ -1,5 +1,3 @@
-use sha2::{Digest, Sha256};
-
 use cosmwasm_std::{
     entry_point, from_slice, to_binary, to_vec, Addr, AllBalanceResponse, Api, BankMsg,
     CanonicalAddr, Deps, DepsMut, Env, Event, MessageInfo, QueryRequest, QueryResponse, Response,
@@ -282,7 +280,7 @@ fn query_recurse(deps: Deps, depth: u32, work: u32, contract: Addr) -> StdResult
     // perform all hashes as requested
     let mut hashed: Vec<u8> = contract.as_str().into();
     for _ in 0..work {
-        hashed = Sha256::digest(&hashed).to_vec()
+        hashed = deps.api.sha256(&hashed)?
     }
 
     // the last contract should return the response
@@ -594,12 +592,12 @@ mod tests {
         assert_eq!(no_work_query.hashed, Binary::from(bin_contract));
 
         // let's see if 5 hashes are done right
-        let mut expected_hash = Sha256::digest(bin_contract);
+        let mut expected_hash = deps.api.sha256(bin_contract).unwrap();
         for _ in 0..4 {
-            expected_hash = Sha256::digest(expected_hash);
+            expected_hash = deps.api.sha256(&expected_hash).unwrap();
         }
         let work_query = query_recurse(deps.as_ref(), 0, 5, contract).unwrap();
-        assert_eq!(work_query.hashed, expected_hash.to_vec());
+        assert_eq!(work_query.hashed, expected_hash);
     }
 
     #[test]
