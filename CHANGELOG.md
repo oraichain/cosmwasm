@@ -20,10 +20,18 @@ and this project adheres to
 - cosmwasm-vm: Limit number of imports during static validation ([#1629]).
 - cosmwasm-vm: The `check_contract` example was removed. Please use the crate
   [cosmwasm-check](https://crates.io/crates/cosmwasm-check) instead ([#1511]).
+- cosmwasm-vm: Avoid using loupe for getting the `Module` size in the file
+  system cache to prepare for the Wasmer 3 upgrade.
 
 [#1511]: https://github.com/CosmWasm/cosmwasm/issues/1511
 [#1629]: https://github.com/CosmWasm/cosmwasm/pull/1629
 [#1631]: https://github.com/CosmWasm/cosmwasm/pull/1631
+
+## [1.2.4] - 2023-04-17
+
+### Fixed
+
+- cosmwasm-vm: Add call depths limit
 
 ## [1.2.3] - 2023-03-22
 
@@ -1677,7 +1685,8 @@ Some main points:
 
 All future Changelog entries will reference this base
 
-[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.3...HEAD
+[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.4...HEAD
+[1.2.4]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.3...v1.2.4
 [1.2.3]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.0...v1.2.1

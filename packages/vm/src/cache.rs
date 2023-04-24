@@ -262,9 +262,8 @@ where
 
         // Try to get module from file system cache
         let store = make_runtime_store(Some(cache.instance_memory_limit));
-        if let Some(module) = cache.fs_cache.load(checksum, &store)? {
+        if let Some((module, module_size)) = cache.fs_cache.load(checksum, &store)? {
             cache.stats.hits_fs_cache = cache.stats.hits_fs_cache.saturating_add(1);
-            let module_size = loupe::size_of_val(&module);
             return cache
                 .pinned_memory_cache
                 .store(checksum, module, module_size);
@@ -274,8 +273,7 @@ where
         let code = self.load_wasm_with_path(&cache.wasm_path, checksum)?;
         let module = compile(&code, Some(cache.instance_memory_limit), &[])?;
         // Store into the fs cache too
-        cache.fs_cache.store(checksum, &module)?;
-        let module_size = loupe::size_of_val(&module);
+        let module_size = cache.fs_cache.store(checksum, &module)?;
         cache
             .pinned_memory_cache
             .store(checksum, module, module_size)
@@ -334,9 +332,9 @@ where
 
         // Get module from file system cache
         let store = make_runtime_store(Some(cache.instance_memory_limit));
-        if let Some(module) = cache.fs_cache.load(checksum, &store)? {
+        if let Some((module, module_size)) = cache.fs_cache.load(checksum, &store)? {
             cache.stats.hits_fs_cache = cache.stats.hits_fs_cache.saturating_add(1);
-            let module_size = loupe::size_of_val(&module);
+
             cache
                 .memory_cache
                 .store(checksum, module.clone(), module_size)?;
@@ -351,8 +349,8 @@ where
         let wasm = self.load_wasm_with_path(&cache.wasm_path, checksum)?;
         cache.stats.misses = cache.stats.misses.saturating_add(1);
         let module = compile(&wasm, Some(cache.instance_memory_limit), &[])?;
-        cache.fs_cache.store(checksum, &module)?;
-        let module_size = loupe::size_of_val(&module);
+        let module_size = cache.fs_cache.store(checksum, &module)?;
+
         cache
             .memory_cache
             .store(checksum, module.clone(), module_size)?;
@@ -1135,9 +1133,8 @@ mod tests {
             report2,
             AnalysisReport {
                 has_ibc_entry_points: true,
-                required_capabilities: HashSet::from_iter(vec![
+                required_capabilities: HashSet::from_iter([
                     "iterator".to_string(),
-                    "staking".to_string(),
                     "stargate".to_string()
                 ]),
             }
