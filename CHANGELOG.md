@@ -25,11 +25,44 @@ and this project adheres to
 - cosmwasm-vm: Add target (triple + CPU features) into the module cache
   directory to avoid using modules compiled for a different system. Bump
   `MODULE_SERIALIZATION_VERSION` to "v5". ([#1664])
+- cosmwasm-vm: When enabling `print_debug` the debug logs are now printed to
+  STDERR instead of STDOUT by default ([#1667]).
+- cosmwasm-vm: Add `Instance::set_debug_handler`/`unset_debug_handler` to allow
+  customizing the handling of debug messages emitted by the contract ([#1667]).
 
 [#1511]: https://github.com/CosmWasm/cosmwasm/issues/1511
 [#1629]: https://github.com/CosmWasm/cosmwasm/pull/1629
 [#1631]: https://github.com/CosmWasm/cosmwasm/pull/1631
 [#1664]: https://github.com/CosmWasm/cosmwasm/pull/1664
+[#1667]: https://github.com/CosmWasm/cosmwasm/pull/1667
+
+### Deprecated
+
+- cosmwasm-storage: All exports are deprecated because this crate will be
+  removed with CosmWasm 2.0 ([#1596]).
+
+[#1596]: https://github.com/CosmWasm/cosmwasm/issues/1596
+
+## [1.2.5] - 2023-05-02
+
+### Added
+
+- cosmwasm-std: Implement `PartialEq` for `Addr == &Addr` and `&Addr == Addr` as
+  well as `Event == &Event` and `&Event == Event` ([#1672]).
+- cosmwasm-std: Add `#[must_use]` annotations to `Uint64`, `Uint128`, `Uint256`,
+  `Uint512`, `Decimal` and `Decimal256` math operations ([#1678])
+
+[#1672]: https://github.com/CosmWasm/cosmwasm/pull/1672
+[#1678]: https://github.com/CosmWasm/cosmwasm/pull/1678
+
+### Deprecated
+
+- cosmwasm-std: The PartialEq implementations between `Addr` and `&str`/`String`
+  are deprecated because they are not considered to be safe. In almost all cases
+  you want to convert both sides of the equation to `Addr` first. If you really
+  want to do a string comparison, use `Addr::as_str()` explicitly. ([#1671])
+
+[#1671]: https://github.com/CosmWasm/cosmwasm/pull/1671
 
 ## [1.2.4] - 2023-04-17
 
@@ -1689,7 +1722,8 @@ Some main points:
 
 All future Changelog entries will reference this base
 
-[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.4...HEAD
+[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.5...HEAD
+[1.2.5]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.4...v1.2.5
 [1.2.4]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.3...v1.2.4
 [1.2.3]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.1...v1.2.2

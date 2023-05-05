@@ -414,7 +414,7 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-crypto"
-version = "1.2.4"
+version = "1.2.5"
 dependencies = [
  "ark-bls12-381",
  "ark-bn254",
@@ -437,14 +437,14 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-derive"
-version = "1.2.4"
+version = "1.2.5"
 dependencies = [
  "syn 1.0.73",
 ]
 
 [[package]]
 name = "cosmwasm-schema"
-version = "1.2.4"
+version = "1.2.5"
 dependencies = [
  "cosmwasm-schema-derive",
  "schemars",
@@ -455,7 +455,7 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-schema-derive"
-version = "1.2.4"
+version = "1.2.5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -464,7 +464,7 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-std"
-version = "1.2.4"
+version = "1.2.5"
 dependencies = [
  "base64",
  "cosmwasm-crypto",
@@ -481,16 +481,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "cosmwasm-storage"
-version = "1.2.4"
-dependencies = [
- "cosmwasm-std",
- "serde",
-]
-
-[[package]]
 name = "cosmwasm-vm"
-version = "1.2.4"
+version = "1.2.5"
 dependencies = [
  "bitflags",
  "bytecheck",
@@ -498,6 +490,7 @@ dependencies = [
  "cosmwasm-crypto",
  "cosmwasm-std",
  "crc32fast",
+ "derivative",
  "enumset",
  "hex",
  "loupe",
@@ -685,7 +678,6 @@ version = "0.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
- "cosmwasm-storage",
  "cosmwasm-vm",
  "hex",
  "hex-literal",
