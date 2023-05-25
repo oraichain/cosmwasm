@@ -1,6 +1,6 @@
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
-use wasmer::Val;
+use wasmer::Value;
 
 use cosmwasm_std::{
     Attribute, BankMsg, Binary, Coin, ContractResult, CosmosMsg, CustomMsg, Env, MessageInfo,
@@ -777,7 +777,7 @@ where
     S: Storage + 'static,
     Q: Querier + 'static,
 {
-    let mut arg_region_ptrs = Vec::<Val>::with_capacity(args.len());
+    let mut arg_region_ptrs = Vec::<Value>::with_capacity(args.len());
     for arg in args {
         let region_ptr = instance.allocate(arg.len())?;
         instance.write_memory(region_ptr, arg)?;
