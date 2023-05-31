@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::ptr::NonNull;
 use std::rc::Rc;
@@ -98,9 +99,11 @@ where
         let fe = FunctionEnv::new(&mut store, {
             let e = Environment::new(backend.api, gas_limit, get_interface_version(module).ok());
             if print_debug {
-                e.set_debug_handler(Some(Rc::new(|msg: &str, _gas_remaining| {
-                    eprintln!("{msg}");
-                })))
+                e.set_debug_handler(Some(Rc::new(RefCell::new(
+                    |msg: &str, _gas_remaining: DebugInfo<'_>| {
+                        eprintln!("{msg}");
+                    },
+                ))))
             }
             e
         });
@@ -347,11 +350,11 @@ where
 
     pub fn set_debug_handler<H>(&mut self, debug_handler: H)
     where
-        H: for<'a> Fn(/* msg */ &'a str, DebugInfo<'a>) + 'static,
+        H: for<'a, 'b> FnMut(/* msg */ &'a str, DebugInfo<'b>) + 'static,
     {
         self.fe
             .as_ref(&self.store)
-            .set_debug_handler(Some(Rc::new(debug_handler)));
+            .set_debug_handler(Some(Rc::new(RefCell::new(debug_handler))));
     }
 
     pub fn unset_debug_handler(&mut self) {
