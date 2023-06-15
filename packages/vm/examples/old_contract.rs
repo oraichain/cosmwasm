@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use tempfile::TempDir;
 
-use clap::{App, Arg};
+use clap::{Arg, Command};
 use cosmwasm_std::{coins, Empty};
 use cosmwasm_vm::testing::{mock_backend, mock_env, mock_info, MockApi};
 use cosmwasm_vm::{
@@ -74,21 +74,20 @@ pub fn run_contract(src: &str) {
 
 pub fn main() {
     //
-    let matches = App::new("Contract checking")
+    let matches = Command::new("Contract checking")
         .version("0.1.0")
         .long_about("Run a wasm contract (cargo run --package cosmwasm-vm --features cranelift,iterator --example old_contract -- packages/vm/testdata/oraichain_nft_0_13_2.wasm).")
         .author("Thanh Tu <tu@orai.io>")
         .arg(
-            Arg::with_name("WASM")
-                .help("Wasm file to read and compile")
-                .default_value("packages/vm/testdata/oraichain_nft_0_13_2.wasm")
+            Arg::new("WASM")
+                .help("Wasm file to read and compile")                
                 .required(true)
                 .index(1),
         )
         .get_matches();
 
     // File
-    let path = matches.value_of("WASM").expect("Error parsing file name");
+    let path: &String = matches.get_one("WASM").expect("Error parsing file name");
 
     run_contract(path);
 }
