@@ -433,7 +433,7 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-crypto"
-version = "1.2.5"
+version = "1.2.7"
 dependencies = [
  "ark-bls12-381",
  "ark-bn254",
@@ -456,14 +456,14 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-derive"
-version = "1.2.5"
+version = "1.2.7"
 dependencies = [
  "syn 1.0.109",
 ]
 
 [[package]]
 name = "cosmwasm-schema"
-version = "1.2.5"
+version = "1.2.7"
 dependencies = [
  "cosmwasm-schema-derive",
  "schemars",
@@ -474,7 +474,7 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-schema-derive"
-version = "1.2.5"
+version = "1.2.7"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -483,7 +483,7 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-std"
-version = "1.2.5"
+version = "1.2.7"
 dependencies = [
  "base64",
  "cosmwasm-crypto",
@@ -501,7 +501,7 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-vm"
-version = "1.2.5"
+version = "1.2.7"
 dependencies = [
  "bitflags",
  "bytecheck",

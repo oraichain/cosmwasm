@@ -8,6 +8,12 @@ and this project adheres to
 
 ### Added
 
+- cosmwasm-std: Implement `BankQuery::AllDenomMetadata` to allow querying all
+  the denom metadata and `BankQuery::DenomMetadata` to query a specific one. In
+  order to use this query in a contract, the `cosmwasm_1_3` feature needs to be
+  enabled for the `cosmwasm_std` dependency. This makes the contract
+  incompatible with chains running anything lower than CosmWasm `1.3.0`.
+  ([#1647])
 - cosmwasm-vm: Add `Cache::save_wasm_unchecked` to save Wasm blobs that have
   been checked before. This is useful for state-sync where we know the Wasm code
   was checked when it was first uploaded. ([#1635])
@@ -16,6 +22,7 @@ and this project adheres to
   from a basis point value ([#1715]).
 
 [#1635]: https://github.com/CosmWasm/cosmwasm/pull/1635
+[#1647]: https://github.com/CosmWasm/cosmwasm/pull/1647
 [#1684]: https://github.com/CosmWasm/cosmwasm/pull/1684
 [#1715]: https://github.com/CosmWasm/cosmwasm/pull/1715
 
@@ -55,6 +62,37 @@ and this project adheres to
   removed with CosmWasm 2.0 ([#1596]).
 
 [#1596]: https://github.com/CosmWasm/cosmwasm/issues/1596
+
+## [1.2.7] - 2023-06-19
+
+### Added
+
+- cosmwasm-std: Add `<<` and `<<=` implementation for `Uint{64,128,256,512}`
+  types. ([#1723])
+- cosmwasm-std: Add `Timestamp::{plus,minus}_{minutes, hours, days}`. ([#1729])
+- cosmwasm-std: Add `Decimal::bps` and `Decimal256::bps` to create a decimal
+  from a basis point value ([#1715]).
+
+[#1723]: https://github.com/CosmWasm/cosmwasm/pull/1723
+[#1729]: https://github.com/CosmWasm/cosmwasm/pull/1729
+[#1715]: https://github.com/CosmWasm/cosmwasm/pull/1715
+
+### Changed
+
+- cosmwasm-std: Coin uses shorter `Coin { 123 "ucosm" }` format for Debug
+  ([#1704])
+
+[#1704]: https://github.com/CosmWasm/cosmwasm/pull/1704
+
+## [1.2.6] - 2023-06-05
+
+### Changed
+
+- cosmwasm-vm: Bumped module serialization version from v4 to v5 to invalidate
+  potentially corrupted caches caused by Rust update. See
+  https://github.com/CosmWasm/wasmvm/issues/426 for more information. ([#1708])
+
+[#1708]: https://github.com/CosmWasm/cosmwasm/pull/1708
 
 ## [1.2.5] - 2023-05-02
 
@@ -1735,7 +1773,9 @@ Some main points:
 
 All future Changelog entries will reference this base
 
-[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.5...HEAD
+[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.7...HEAD
+[1.2.7]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.6...v1.2.7
+[1.2.6]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.5...v1.2.6
 [1.2.5]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.4...v1.2.5
 [1.2.4]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.3...v1.2.4
 [1.2.3]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.2...v1.2.3
