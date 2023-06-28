@@ -394,7 +394,7 @@ mod tests {
                 source: RecoverPubkeyError::UnknownErr { .. },
                 ..
             } => {}
-            err => panic!("Unexpected error: {:?}", err),
+            err => panic!("Unexpected error: {err:?}"),
         }
     }
 

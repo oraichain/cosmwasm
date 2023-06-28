@@ -604,7 +604,7 @@ mod tests {
         // Using one more unit of gas triggers a failure
         match process_gas_info(&env, &mut store, GasInfo::with_cost(1)).unwrap_err() {
             VmError::GasDepletion { .. } => {}
-            err => panic!("unexpected error: {:?}", err),
+            err => panic!("unexpected error: {err:?}"),
         }
     }
 
@@ -626,7 +626,7 @@ mod tests {
         // Using one more unit of gas triggers a failure
         match process_gas_info(&env, &mut store, GasInfo::with_externally_used(1)).unwrap_err() {
             VmError::GasDepletion { .. } => {}
-            err => panic!("unexpected error: {:?}", err),
+            err => panic!("unexpected error: {err:?}"),
         }
     }
 
@@ -659,7 +659,7 @@ mod tests {
         // More cost fail but do not change stats
         match process_gas_info(&env, &mut store, GasInfo::new(1, 0)).unwrap_err() {
             VmError::GasDepletion { .. } => {}
-            err => panic!("unexpected error: {:?}", err),
+            err => panic!("unexpected error: {err:?}"),
         }
         assert_eq!(env.get_gas_left(&mut store), 0);
         let gas_state = env.with_gas_state(|gas_state| gas_state.clone());
@@ -669,7 +669,7 @@ mod tests {
         // More externally used fails and changes stats
         match process_gas_info(&env, &mut store, GasInfo::new(0, 1)).unwrap_err() {
             VmError::GasDepletion { .. } => {}
-            err => panic!("unexpected error: {:?}", err),
+            err => panic!("unexpected error: {err:?}"),
         }
         assert_eq!(env.get_gas_left(&mut store), 0);
         let gas_state = env.with_gas_state(|gas_state| gas_state.clone());
@@ -685,7 +685,7 @@ mod tests {
             let result = process_gas_info(&env, &mut store, GasInfo::with_externally_used(120));
             match result.unwrap_err() {
                 VmError::GasDepletion { .. } => {}
-                err => panic!("unexpected error: {:?}", err),
+                err => panic!("unexpected error: {err:?}"),
             }
             assert_eq!(env.get_gas_left(&mut store), 0);
             let gas_state = env.with_gas_state(|gas_state| gas_state.clone());
@@ -699,7 +699,7 @@ mod tests {
             let result = process_gas_info(&env, &mut store, GasInfo::with_cost(120));
             match result.unwrap_err() {
                 VmError::GasDepletion { .. } => {}
-                err => panic!("unexpected error: {:?}", err),
+                err => panic!("unexpected error: {err:?}"),
             }
             assert_eq!(env.get_gas_left(&mut store), 0);
             let gas_state = env.with_gas_state(|gas_state| gas_state.clone());
@@ -731,7 +731,7 @@ mod tests {
         // Using one more unit of gas triggers a failure
         match process_gas_info(&env, &mut store, GasInfo::with_externally_used(1)).unwrap_err() {
             VmError::GasDepletion { .. } => {}
-            err => panic!("unexpected error: {:?}", err),
+            err => panic!("unexpected error: {err:?}"),
         }
     }
 
@@ -784,7 +784,7 @@ mod tests {
         let res = env.call_function(&mut store, "allocate", &[]);
         match res.unwrap_err() {
             VmError::UninitializedContextData { kind, .. } => assert_eq!(kind, "wasmer_instance"),
-            err => panic!("Unexpected error: {:?}", err),
+            err => panic!("Unexpected error: {err:?}"),
         }
     }
 
@@ -798,7 +798,7 @@ mod tests {
             VmError::ResolveErr { msg, .. } => {
                 assert_eq!(msg, "Could not get export: Missing export doesnt_exist");
             }
-            err => panic!("Unexpected error: {:?}", err),
+            err => panic!("Unexpected error: {err:?}"),
         }
     }
 
@@ -828,7 +828,7 @@ mod tests {
                 assert_eq!(expected, 0);
                 assert_eq!(actual, 1);
             }
-            err => panic!("unexpected error: {:?}", err),
+            err => panic!("unexpected error: {err:?}"),
         }
     }
 
@@ -867,7 +867,7 @@ mod tests {
                 assert_eq!(expected, 1);
                 assert_eq!(actual, 0);
             }
-            err => panic!("unexpected error: {:?}", err),
+            err => panic!("unexpected error: {err:?}"),
         }
     }
 

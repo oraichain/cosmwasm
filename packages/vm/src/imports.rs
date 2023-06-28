@@ -925,7 +925,7 @@ mod tests {
                 source: CommunicationError::RegionLengthTooBig { length, .. },
                 ..
             } => assert_eq!(length, 300 * 1024),
-            e => panic!("Unexpected error: {:?}", e),
+            e => panic!("Unexpected error: {e:?}"),
         }
     }
 
@@ -1024,7 +1024,7 @@ mod tests {
                 assert_eq!(length, 300 * 1024);
                 assert_eq!(max_length, MAX_LENGTH_DB_KEY);
             }
-            err => panic!("unexpected error: {:?}", err),
+            err => panic!("unexpected error: {err:?}"),
         };
     }
 
@@ -1051,7 +1051,7 @@ mod tests {
                 assert_eq!(length, 300 * 1024);
                 assert_eq!(max_length, MAX_LENGTH_DB_VALUE);
             }
-            err => panic!("unexpected error: {:?}", err),
+            err => panic!("unexpected error: {err:?}"),
         };
     }
 
@@ -1070,7 +1070,7 @@ mod tests {
         let result = do_db_write(fe_mut, key_ptr, value_ptr);
         match result.unwrap_err() {
             VmError::WriteAccessDenied { .. } => {}
-            e => panic!("Unexpected error: {:?}", e),
+            e => panic!("Unexpected error: {e:?}"),
         }
     }
 
@@ -1088,7 +1088,7 @@ mod tests {
         fe_mut
             .data()
             .with_storage_from_context::<_, _>(|store| {
-                println!("{:?}", store);
+                println!("{store:?}");
                 Ok(())
             })
             .unwrap();
@@ -1098,7 +1098,7 @@ mod tests {
         fe_mut
             .data()
             .with_storage_from_context::<_, _>(|store| {
-                println!("{:?}", store);
+                println!("{store:?}");
                 Ok(())
             })
             .unwrap();
@@ -1157,7 +1157,7 @@ mod tests {
                 assert_eq!(length, 300 * 1024);
                 assert_eq!(max_length, MAX_LENGTH_DB_KEY);
             }
-            err => panic!("unexpected error: {:?}", err),
+            err => panic!("unexpected error: {err:?}"),
         };
     }
 
@@ -1175,7 +1175,7 @@ mod tests {
         let result = do_db_remove(fe_mut, key_ptr);
         match result.unwrap_err() {
             VmError::WriteAccessDenied { .. } => {}
-            e => panic!("Unexpected error: {:?}", e),
+            e => panic!("Unexpected error: {e:?}"),
         }
     }
 
@@ -1245,7 +1245,7 @@ mod tests {
                 source: BackendError::Unknown { msg, .. },
                 ..
             } => assert_eq!(msg, "Temporarily unavailable"),
-            err => panic!("Incorrect error returned: {:?}", err),
+            err => panic!("Incorrect error returned: {err:?}"),
         }
     }
 
@@ -1271,7 +1271,7 @@ mod tests {
                 assert_eq!(length, 333);
                 assert_eq!(max_length, 256);
             }
-            err => panic!("Incorrect error returned: {:?}", err),
+            err => panic!("Incorrect error returned: {err:?}"),
         }
     }
 
@@ -1343,7 +1343,7 @@ mod tests {
                 source: BackendError::Unknown { msg, .. },
                 ..
             } => assert_eq!(msg, "Temporarily unavailable"),
-            err => panic!("Incorrect error returned: {:?}", err),
+            err => panic!("Incorrect error returned: {err:?}"),
         }
     }
 
@@ -1370,7 +1370,7 @@ mod tests {
                 assert_eq!(length, 333);
                 assert_eq!(max_length, 256);
             }
-            err => panic!("Incorrect error returned: {:?}", err),
+            err => panic!("Incorrect error returned: {err:?}"),
         }
     }
 
@@ -1394,7 +1394,7 @@ mod tests {
                 assert_eq!(size, 7);
                 assert_eq!(required, api.canonical_length());
             }
-            err => panic!("Incorrect error returned: {:?}", err),
+            err => panic!("Incorrect error returned: {err:?}"),
         }
     }
 
@@ -1450,7 +1450,7 @@ mod tests {
                 source: BackendError::Unknown { msg, .. },
                 ..
             } => assert_eq!(msg, "Temporarily unavailable"),
-            err => panic!("Incorrect error returned: {:?}", err),
+            err => panic!("Incorrect error returned: {err:?}"),
         };
     }
 
@@ -1477,7 +1477,7 @@ mod tests {
                 assert_eq!(length, 65);
                 assert_eq!(max_length, 64);
             }
-            err => panic!("Incorrect error returned: {:?}", err),
+            err => panic!("Incorrect error returned: {err:?}"),
         }
     }
 
@@ -1503,7 +1503,7 @@ mod tests {
                 assert_eq!(size, 2);
                 assert_eq!(required, api.canonical_length());
             }
-            err => panic!("Incorrect error returned: {:?}", err),
+            err => panic!("Incorrect error returned: {err:?}"),
         }
     }
 
@@ -1568,7 +1568,7 @@ mod tests {
                 source: CommunicationError::RegionLengthTooBig { length, .. },
                 ..
             } => assert_eq!(length, MESSAGE_HASH_MAX_LEN + 1),
-            e => panic!("Unexpected error: {:?}", e),
+            e => panic!("Unexpected error: {e:?}"),
         }
     }
 
@@ -1635,7 +1635,7 @@ mod tests {
                 source: CommunicationError::RegionLengthTooBig { length, .. },
                 ..
             } => assert_eq!(length, ECDSA_SIGNATURE_LEN + 1),
-            e => panic!("Unexpected error: {:?}", e),
+            e => panic!("Unexpected error: {e:?}"),
         }
     }
 
@@ -1723,7 +1723,7 @@ mod tests {
                 source: CommunicationError::RegionLengthTooBig { length, .. },
                 ..
             } => assert_eq!(length, ECDSA_PUBKEY_MAX_LEN + 1),
-            e => panic!("Unexpected error: {:?}", e),
+            e => panic!("Unexpected error: {e:?}"),
         }
     }
 
@@ -1870,7 +1870,7 @@ mod tests {
                 source: CommunicationError::RegionLengthTooBig { length, .. },
                 ..
             } => assert_eq!(length, msg.len()),
-            e => panic!("Unexpected error: {:?}", e),
+            e => panic!("Unexpected error: {e:?}"),
         }
     }
 
@@ -1916,7 +1916,7 @@ mod tests {
                 source: CommunicationError::RegionLengthTooBig { length, .. },
                 ..
             } => assert_eq!(length, MAX_LENGTH_ED25519_SIGNATURE + 1),
-            e => panic!("Unexpected error: {:?}", e),
+            e => panic!("Unexpected error: {e:?}"),
         }
     }
 
@@ -1983,7 +1983,7 @@ mod tests {
                 source: CommunicationError::RegionLengthTooBig { length, .. },
                 ..
             } => assert_eq!(length, EDDSA_PUBKEY_LEN + 1),
-            e => panic!("Unexpected error: {:?}", e),
+            e => panic!("Unexpected error: {e:?}"),
         }
     }
 
@@ -2092,7 +2092,7 @@ mod tests {
             SystemResult::Err(SystemError::InvalidRequest { request: err, .. }) => {
                 assert_eq!(err.as_slice(), request)
             }
-            SystemResult::Err(err) => panic!("Unexpected error: {:?}", err),
+            SystemResult::Err(err) => panic!("Unexpected error: {err:?}"),
         }
     }
 
@@ -2121,7 +2121,7 @@ mod tests {
             SystemResult::Err(SystemError::NoSuchContract { addr }) => {
                 assert_eq!(addr, "non-existent")
             }
-            SystemResult::Err(err) => panic!("Unexpected error: {:?}", err),
+            SystemResult::Err(err) => panic!("Unexpected error: {err:?}"),
         }
     }
 
@@ -2279,7 +2279,7 @@ mod tests {
                 source: CommunicationError::InvalidOrder { .. },
                 ..
             } => {}
-            e => panic!("Unexpected error: {:?}", e),
+            e => panic!("Unexpected error: {e:?}"),
         }
     }
 
@@ -2330,7 +2330,7 @@ mod tests {
                 source: BackendError::IteratorDoesNotExist { id, .. },
                 ..
             } => assert_eq!(id, non_existent_id),
-            e => panic!("Unexpected error: {:?}", e),
+            e => panic!("Unexpected error: {e:?}"),
         }
     }
 }
