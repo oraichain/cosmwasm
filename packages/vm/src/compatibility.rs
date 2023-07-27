@@ -1,11 +1,14 @@
-use parity_wasm::elements::{External, ImportEntry, Module, TableType};
 use std::collections::BTreeSet;
 use std::collections::HashSet;
+
+use wasmer::wasmparser::Import;
+use wasmer::wasmparser::TypeRef;
 
 use crate::capabilities::required_capabilities_from_module;
 use crate::errors::{VmError, VmResult};
 use crate::limited::LimitedDisplay;
-use crate::static_analysis::{deserialize_wasm, ExportInfo};
+use crate::parsed_wasm::ParsedWasm;
+use crate::static_analysis::ExportInfo;
 
 /// Lists all imports we provide upon instantiating the instance in Instance::from_module()
 /// This should be updated when new imports are added
@@ -79,30 +82,24 @@ pub const INTERFACE_VERSION: u8 = 8;
 
 /// Checks if the data is valid wasm and compatibility with the CosmWasm API (imports and exports)
 pub fn check_wasm(wasm_code: &[u8], available_capabilities: &HashSet<String>) -> VmResult<()> {
-    let module = deserialize_wasm(wasm_code)?;
+    let module = ParsedWasm::parse(wasm_code)?;
+
     check_wasm_tables(&module)?;
     check_wasm_memories(&module)?;
     check_interface_version(&module)?;
     check_wasm_exports(&module)?;
     check_wasm_imports(&module, SUPPORTED_IMPORTS)?;
     check_wasm_capabilities(&module, available_capabilities)?;
+
     Ok(())
 }
 
-fn check_wasm_tables(module: &Module) -> VmResult<()> {
-    let sections: &[TableType] = module
-        .table_section()
-        .map_or(&[], |section| section.entries());
-    match sections.len() {
+fn check_wasm_tables(module: &ParsedWasm) -> VmResult<()> {
+    match module.tables.len() {
         0 => Ok(()),
         1 => {
-            let limits = sections[0].limits();
-            if let Some(maximum) = limits.maximum() {
-                if limits.initial() > maximum {
-                    return Err(VmError::static_validation_err(
-                        "Wasm contract's first table section has a initial limit > max limit",
-                    ));
-                }
+            let limits = &module.tables[0];
+            if let Some(maximum) = limits.maximum {
                 if maximum > TABLE_SIZE_LIMIT {
                     return Err(VmError::static_validation_err(
                         "Wasm contract's first table section has a too large max limit",
@@ -121,34 +118,21 @@ fn check_wasm_tables(module: &Module) -> VmResult<()> {
     }
 }
 
-fn check_wasm_memories(module: &Module) -> VmResult<()> {
-    let section = match module.memory_section() {
-        Some(section) => section,
-        None => {
-            return Err(VmError::static_validation_err(
-                "Wasm contract doesn't have a memory section",
-            ));
-        }
-    };
-
-    let memories = section.entries();
-    if memories.len() != 1 {
+fn check_wasm_memories(module: &ParsedWasm) -> VmResult<()> {
+    if module.memories.len() != 1 {
         return Err(VmError::static_validation_err(
             "Wasm contract must contain exactly one memory",
         ));
     }
+    let memory = &module.memories[0];
 
-    let memory = memories[0];
-    // println!("Memory: {:?}", memory);
-    let limits = memory.limits();
-
-    if limits.initial() > MEMORY_LIMIT {
+    if memory.initial > MEMORY_LIMIT as u64 {
         return Err(VmError::static_validation_err(format!(
             "Wasm contract memory's minimum must not exceed {MEMORY_LIMIT} pages."
         )));
     }
 
-    if limits.maximum().is_some() {
+    if memory.maximum.is_some() {
         return Err(VmError::static_validation_err(
             "Wasm contract memory's maximum must be unset. The host will set it for you.",
         ));
@@ -156,7 +140,16 @@ fn check_wasm_memories(module: &Module) -> VmResult<()> {
     Ok(())
 }
 
-fn check_interface_version(module: &Module) -> VmResult<()> {
+fn check_interface_version(module: &ParsedWasm) -> VmResult<()> {
+    // support cosmwasm_vm_version_4 (v0.11.0 - v0.13.2)
+    if module
+        .exported_function_names(Some("cosmwasm_vm_version_4"))
+        .len()
+        == 1
+    {
+        return Ok(());
+    }
+
     let version = get_interface_version(module)?;
     // version from 4 to 8
     if version > 0 && version <= INTERFACE_VERSION {
@@ -169,16 +162,7 @@ fn check_interface_version(module: &Module) -> VmResult<()> {
 }
 
 /// return interface version, version 4,5 must fix response, version 4 fix info and env
-pub fn get_interface_version(module: &impl ExportInfo) -> VmResult<u8> {
-    // support cosmwasm_vm_version_4 (v0.11.0 - v0.13.2)
-    if module
-        .exported_function_names(Some("cosmwasm_vm_version_4"))
-        .len()
-        == 1
-    {
-        return Ok(4u8);
-    }
-
+pub fn get_interface_version(module: impl ExportInfo) -> VmResult<u8> {
     let mut interface_version_exports = module
         .exported_function_names(Some(INTERFACE_VERSION_PREFIX))
         .into_iter();
@@ -202,7 +186,7 @@ pub fn get_interface_version(module: &impl ExportInfo) -> VmResult<u8> {
     }
 }
 
-fn check_wasm_exports(module: &Module) -> VmResult<()> {
+fn check_wasm_exports(module: &ParsedWasm) -> VmResult<()> {
     let available_exports: HashSet<String> = module.exported_function_names(None);
 
     for required_export in REQUIRED_EXPORTS {
@@ -218,46 +202,42 @@ fn check_wasm_exports(module: &Module) -> VmResult<()> {
 /// Checks if the import requirements of the contract are satisfied.
 /// When this is not the case, we either have an incompatibility between contract and VM
 /// or a error in the contract.
-fn check_wasm_imports(module: &Module, supported_imports: &[&str]) -> VmResult<()> {
-    let required_imports: &[ImportEntry] = module
-        .import_section()
-        .map_or(&[], |import_section| import_section.entries());
-
-    if required_imports.len() > MAX_IMPORTS {
+fn check_wasm_imports(module: &ParsedWasm, supported_imports: &[&str]) -> VmResult<()> {
+    if module.imports.len() > MAX_IMPORTS {
         return Err(VmError::static_validation_err(format!(
             "Import count exceeds limit. Imports: {}. Limit: {}.",
-            required_imports.len(),
+            module.imports.len(),
             MAX_IMPORTS
         )));
     }
 
-    for required_import in required_imports {
+    for required_import in &module.imports {
         let full_name = full_import_name(required_import);
         if !supported_imports.contains(&full_name.as_str()) {
             let required_import_names: BTreeSet<_> =
-                required_imports.iter().map(full_import_name).collect();
+                module.imports.iter().map(full_import_name).collect();
             return Err(VmError::static_validation_err(format!(
                 "Wasm contract requires unsupported import: \"{}\". Required imports: {}. Available imports: {:?}.",
                 full_name, required_import_names.to_string_limited(200), supported_imports
             )));
         }
 
-        match required_import.external() {
-            External::Function(_) => {}, // ok
+        match required_import.ty {
+            TypeRef::Func(_) => {} // ok
             _ => return Err(VmError::static_validation_err(format!(
                 "Wasm contract requires non-function import: \"{full_name}\". Right now, all supported imports are functions."
-            ))),
-        };
+            )))
+        }
     }
     Ok(())
 }
 
-fn full_import_name(ie: &ImportEntry) -> String {
-    format!("{}.{}", ie.module(), ie.field())
+fn full_import_name(ie: &Import) -> String {
+    format!("{}.{}", ie.module, ie.name)
 }
 
 fn check_wasm_capabilities(
-    module: &Module,
+    module: &ParsedWasm,
     available_capabilities: &HashSet<String>,
 ) -> VmResult<()> {
     let required_capabilities = required_capabilities_from_module(module);
@@ -324,19 +304,21 @@ mod tests {
         };
 
         match check_wasm(CONTRACT_0_12, &default_capabilities()) {
-            Err(VmError::StaticValidationErr { msg, .. }) => assert_eq!(
-                msg,
-                "Wasm contract missing a required marker export: interface_version_*"
-            ),
+            Err(VmError::StaticValidationErr { msg, .. }) => {
+                assert!(msg.contains(
+                    "Wasm contract missing a required marker export: interface_version_*"
+                ))
+            }
             Err(e) => panic!("Unexpected error {e:?}"),
             Ok(_) => println!("This is succeeed"),
         };
 
         match check_wasm(CONTRACT_0_7, &default_capabilities()) {
-            Err(VmError::StaticValidationErr { msg, .. }) => assert_eq!(
-                msg,
-                "Wasm contract missing a required marker export: interface_version_*"
-            ),
+            Err(VmError::StaticValidationErr { msg, .. }) => {
+                assert!(msg.contains(
+                    "Wasm contract missing a required marker export: interface_version_*"
+                ))
+            }
             Err(e) => panic!("Unexpected error {e:?}"),
             Ok(_) => println!("This is succeeed"),
         };
@@ -346,29 +328,30 @@ mod tests {
     fn check_wasm_tables_works() {
         // No tables is fine
         let wasm = wat::parse_str("(module)").unwrap();
-        check_wasm_tables(&deserialize_wasm(&wasm).unwrap()).unwrap();
+        assert!(ParsedWasm::parse(&wasm).unwrap().tables.is_empty());
 
         // One table (bound)
         let wasm = wat::parse_str("(module (table $name 123 123 funcref))").unwrap();
-        check_wasm_tables(&deserialize_wasm(&wasm).unwrap()).unwrap();
+        check_wasm_tables(&ParsedWasm::parse(&wasm).unwrap()).unwrap();
 
         // One table (bound, initial > max)
         let wasm = wat::parse_str("(module (table $name 124 123 funcref))").unwrap();
-        let err = check_wasm_tables(&deserialize_wasm(&wasm).unwrap()).unwrap_err();
+        // this should be caught by the validator
+        let err = &ParsedWasm::parse(&wasm).unwrap_err();
         assert!(err
             .to_string()
-            .contains("Wasm contract's first table section has a initial limit > max limit"));
+            .contains("size minimum must not be greater than maximum"));
 
         // One table (bound, max too large)
         let wasm = wat::parse_str("(module (table $name 100 9999 funcref))").unwrap();
-        let err = check_wasm_tables(&deserialize_wasm(&wasm).unwrap()).unwrap_err();
+        let err = check_wasm_tables(&ParsedWasm::parse(&wasm).unwrap()).unwrap_err();
         assert!(err
             .to_string()
             .contains("Wasm contract's first table section has a too large max limit"));
 
         // One table (unbound)
         let wasm = wat::parse_str("(module (table $name 100 funcref))").unwrap();
-        let err = check_wasm_tables(&deserialize_wasm(&wasm).unwrap()).unwrap_err();
+        let err = check_wasm_tables(&ParsedWasm::parse(&wasm).unwrap()).unwrap_err();
         assert!(err
             .to_string()
             .contains("Wasm contract must not have unbound table section"));
@@ -377,15 +360,15 @@ mod tests {
     #[test]
     fn check_wasm_memories_ok() {
         let wasm = wat::parse_str("(module (memory 1))").unwrap();
-        check_wasm_memories(&deserialize_wasm(&wasm).unwrap()).unwrap()
+        check_wasm_memories(&ParsedWasm::parse(&wasm).unwrap()).unwrap()
     }
 
     #[test]
     fn check_wasm_memories_no_memory() {
         let wasm = wat::parse_str("(module)").unwrap();
-        match check_wasm_memories(&deserialize_wasm(&wasm).unwrap()) {
+        match check_wasm_memories(&ParsedWasm::parse(&wasm).unwrap()) {
             Err(VmError::StaticValidationErr { msg, .. }) => {
-                assert!(msg.starts_with("Wasm contract doesn't have a memory section"));
+                assert!(msg.starts_with("Wasm contract must contain exactly one memory"));
             }
             Err(e) => panic!("Unexpected error {e:?}"),
             Ok(_) => panic!("Didn't reject wasm with invalid api"),
@@ -407,9 +390,10 @@ mod tests {
         ))
         .unwrap();
 
-        match check_wasm_memories(&deserialize_wasm(&wasm).unwrap()) {
+        // wrong number of memories should be caught by the validator
+        match ParsedWasm::parse(&wasm) {
             Err(VmError::StaticValidationErr { msg, .. }) => {
-                assert!(msg.starts_with("Wasm contract must contain exactly one memory"));
+                assert!(msg.contains("multiple memories"));
             }
             Err(e) => panic!("Unexpected error {e:?}"),
             Ok(_) => panic!("Didn't reject wasm with invalid api"),
@@ -428,7 +412,7 @@ mod tests {
         ))
         .unwrap();
 
-        match check_wasm_memories(&deserialize_wasm(&wasm).unwrap()) {
+        match check_wasm_memories(&ParsedWasm::parse(&wasm).unwrap()) {
             Err(VmError::StaticValidationErr { msg, .. }) => {
                 assert!(msg.starts_with("Wasm contract must contain exactly one memory"));
             }
@@ -440,10 +424,10 @@ mod tests {
     #[test]
     fn check_wasm_memories_initial_size() {
         let wasm_ok = wat::parse_str("(module (memory 512))").unwrap();
-        check_wasm_memories(&deserialize_wasm(&wasm_ok).unwrap()).unwrap();
+        check_wasm_memories(&ParsedWasm::parse(&wasm_ok).unwrap()).unwrap();
 
         let wasm_too_big = wat::parse_str("(module (memory 513))").unwrap();
-        match check_wasm_memories(&deserialize_wasm(&wasm_too_big).unwrap()) {
+        match check_wasm_memories(&ParsedWasm::parse(&wasm_too_big).unwrap()) {
             Err(VmError::StaticValidationErr { msg, .. }) => {
                 assert!(msg.starts_with("Wasm contract memory's minimum must not exceed 512 pages"));
             }
@@ -455,7 +439,7 @@ mod tests {
     #[test]
     fn check_wasm_memories_maximum_size() {
         let wasm_max = wat::parse_str("(module (memory 1 5))").unwrap();
-        match check_wasm_memories(&deserialize_wasm(&wasm_max).unwrap()) {
+        match check_wasm_memories(&ParsedWasm::parse(&wasm_max).unwrap()) {
             Err(VmError::StaticValidationErr { msg, .. }) => {
                 assert!(msg.starts_with("Wasm contract memory's maximum must be unset"));
             }
@@ -479,7 +463,7 @@ mod tests {
             )"#,
         )
         .unwrap();
-        let module = deserialize_wasm(&wasm).unwrap();
+        let module = ParsedWasm::parse(&wasm).unwrap();
         check_interface_version(&module).unwrap();
 
         #[cfg(feature = "allow_interface_version_7")]
@@ -497,7 +481,7 @@ mod tests {
                 )"#,
             )
             .unwrap();
-            let module = deserialize_wasm(&wasm).unwrap();
+            let module = ParsedWasm::parse(&wasm).unwrap();
             check_interface_version(&module).unwrap();
         }
 
@@ -513,7 +497,7 @@ mod tests {
             )"#,
         )
         .unwrap();
-        let module = deserialize_wasm(&wasm).unwrap();
+        let module = ParsedWasm::parse(&wasm).unwrap();
         match check_interface_version(&module).unwrap_err() {
             VmError::StaticValidationErr { msg, .. } => {
                 assert_eq!(
@@ -538,7 +522,7 @@ mod tests {
             )"#,
         )
         .unwrap();
-        let module = deserialize_wasm(&wasm).unwrap();
+        let module = ParsedWasm::parse(&wasm).unwrap();
         match check_interface_version(&module).unwrap_err() {
             VmError::StaticValidationErr { msg, .. } => {
                 assert_eq!(
@@ -562,7 +546,7 @@ mod tests {
             )"#,
         )
         .unwrap();
-        let module = deserialize_wasm(&wasm).unwrap();
+        let module = ParsedWasm::parse(&wasm).unwrap();
         // we support all version
         assert!(check_interface_version(&module).is_ok());
 
@@ -579,7 +563,7 @@ mod tests {
             )"#,
         )
         .unwrap();
-        let module = deserialize_wasm(&wasm).unwrap();
+        let module = ParsedWasm::parse(&wasm).unwrap();
         match check_interface_version(&module).unwrap_err() {
             VmError::StaticValidationErr { msg, .. } => {
                 assert_eq!(msg, "Wasm contract has unknown interface_version_* marker export (see https://github.com/CosmWasm/cosmwasm/blob/main/packages/vm/README.md)");
@@ -602,7 +586,7 @@ mod tests {
             )"#,
         )
         .unwrap();
-        let module = deserialize_wasm(&wasm).unwrap();
+        let module = ParsedWasm::parse(&wasm).unwrap();
         check_wasm_exports(&module).unwrap();
 
         // this is invalid, as it doesn't any required export
@@ -614,7 +598,7 @@ mod tests {
             )"#,
         )
         .unwrap();
-        let module = deserialize_wasm(&wasm).unwrap();
+        let module = ParsedWasm::parse(&wasm).unwrap();
         match check_wasm_exports(&module) {
             Err(VmError::StaticValidationErr { msg, .. }) => {
                 assert!(msg.starts_with("Wasm contract doesn't have required export: \"allocate\""));
@@ -633,7 +617,7 @@ mod tests {
             )"#,
         )
         .unwrap();
-        let module = deserialize_wasm(&wasm).unwrap();
+        let module = ParsedWasm::parse(&wasm).unwrap();
         match check_wasm_exports(&module) {
             Err(VmError::StaticValidationErr { msg, .. }) => {
                 assert!(
@@ -647,7 +631,7 @@ mod tests {
 
     #[test]
     fn check_wasm_exports_of_old_contract() {
-        let module = deserialize_wasm(CONTRACT_0_7).unwrap();
+        let module = ParsedWasm::parse(CONTRACT_0_7).unwrap();
         match check_wasm_exports(&module) {
             Err(VmError::StaticValidationErr { msg, .. }) => {
                 assert!(
@@ -676,7 +660,7 @@ mod tests {
         )"#,
         )
         .unwrap();
-        check_wasm_imports(&deserialize_wasm(&wasm).unwrap(), SUPPORTED_IMPORTS).unwrap();
+        check_wasm_imports(&ParsedWasm::parse(&wasm).unwrap(), SUPPORTED_IMPORTS).unwrap();
     }
 
     #[test]
@@ -788,7 +772,7 @@ mod tests {
         )
         .unwrap();
         let err =
-            check_wasm_imports(&deserialize_wasm(&wasm).unwrap(), SUPPORTED_IMPORTS).unwrap_err();
+            check_wasm_imports(&ParsedWasm::parse(&wasm).unwrap(), SUPPORTED_IMPORTS).unwrap_err();
         match err {
             VmError::StaticValidationErr { msg, .. } => {
                 assert_eq!(msg, "Import count exceeds limit. Imports: 101. Limit: 100.");
@@ -825,7 +809,7 @@ mod tests {
             "env.debug",
             "env.query_chain",
         ];
-        let result = check_wasm_imports(&deserialize_wasm(&wasm).unwrap(), supported_imports);
+        let result = check_wasm_imports(&ParsedWasm::parse(&wasm).unwrap(), supported_imports);
         match result.unwrap_err() {
             VmError::StaticValidationErr { msg, .. } => {
                 println!("{msg}");
@@ -840,8 +824,8 @@ mod tests {
 
     #[test]
     fn check_wasm_imports_of_old_contract() {
-        let module = deserialize_wasm(CONTRACT_0_7).unwrap();
-        let result = check_wasm_imports(&module, SUPPORTED_IMPORTS);
+        let module = &ParsedWasm::parse(CONTRACT_0_7).unwrap();
+        let result = check_wasm_imports(module, SUPPORTED_IMPORTS);
         match result.unwrap_err() {
             VmError::StaticValidationErr { msg, .. } => {
                 assert!(
@@ -855,7 +839,7 @@ mod tests {
     #[test]
     fn check_wasm_imports_wrong_type() {
         let wasm = wat::parse_str(r#"(module (import "env" "db_read" (memory 1 1)))"#).unwrap();
-        let result = check_wasm_imports(&deserialize_wasm(&wasm).unwrap(), SUPPORTED_IMPORTS);
+        let result = check_wasm_imports(&ParsedWasm::parse(&wasm).unwrap(), SUPPORTED_IMPORTS);
         match result.unwrap_err() {
             VmError::StaticValidationErr { msg, .. } => {
                 assert!(
@@ -881,7 +865,7 @@ mod tests {
         )"#,
         )
         .unwrap();
-        let module = deserialize_wasm(&wasm).unwrap();
+        let module = ParsedWasm::parse(&wasm).unwrap();
         let available = [
             "water".to_string(),
             "nutrients".to_string(),
@@ -908,7 +892,7 @@ mod tests {
         )"#,
         )
         .unwrap();
-        let module = deserialize_wasm(&wasm).unwrap();
+        let module = ParsedWasm::parse(&wasm).unwrap();
 
         // Available set 1
         let available = [

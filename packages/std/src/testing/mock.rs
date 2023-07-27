@@ -1,11 +1,12 @@
+use alloc::collections::BTreeMap;
+use core::marker::PhantomData;
+#[cfg(feature = "cosmwasm_1_3")]
+use core::ops::Bound;
 use cosmwasm_crypto::Poseidon;
 use serde::de::DeserializeOwned;
 #[cfg(feature = "stargate")]
 use serde::Serialize;
-use std::collections::{BTreeMap, HashMap};
-use std::marker::PhantomData;
-#[cfg(feature = "cosmwasm_1_3")]
-use std::ops::Bound;
+use std::collections::HashMap;
 
 use crate::addresses::{Addr, CanonicalAddr};
 use crate::binary::Binary;
@@ -1010,11 +1011,11 @@ impl DistributionQuerier {
         let contract_result: ContractResult<Binary> = match request {
             DistributionQuery::DelegatorWithdrawAddress { delegator_address } => {
                 let res = DelegatorWithdrawAddressResponse {
-                    withdraw_address: self
-                        .withdraw_addresses
-                        .get(delegator_address)
-                        .unwrap_or(delegator_address)
-                        .clone(),
+                    withdraw_address: Addr::unchecked(
+                        self.withdraw_addresses
+                            .get(delegator_address)
+                            .unwrap_or(delegator_address),
+                    ),
                 };
                 to_binary(&res).into()
             }

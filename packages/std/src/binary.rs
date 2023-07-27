@@ -1,6 +1,7 @@
-use std::fmt;
-use std::ops::Deref;
+use core::fmt;
+use core::ops::Deref;
 
+use base64::engine::{Engine, GeneralPurpose};
 use schemars::JsonSchema;
 use serde::{de, ser, Deserialize, Deserializer, Serialize};
 
@@ -15,17 +16,29 @@ use crate::errors::{StdError, StdResult};
 pub struct Binary(#[schemars(with = "String")] pub Vec<u8>);
 
 impl Binary {
+    /// Base64 encoding engine used in conversion to/from base64.
+    ///
+    /// The engine adds padding when encoding and accepts strings with or
+    /// without padding when decoding.
+    const B64_ENGINE: GeneralPurpose = GeneralPurpose::new(
+        &base64::alphabet::STANDARD,
+        base64::engine::GeneralPurposeConfig::new()
+            .with_decode_padding_mode(base64::engine::DecodePaddingMode::Indifferent),
+    );
+
     /// take an (untrusted) string and decode it into bytes.
     /// fails if it is not valid base64
     pub fn from_base64(encoded: &str) -> StdResult<Self> {
-        let binary = base64::decode(encoded).map_err(StdError::invalid_base64)?;
-        Ok(Binary(binary))
+        Self::B64_ENGINE
+            .decode(encoded.as_bytes())
+            .map(Binary::from)
+            .map_err(StdError::invalid_base64)
     }
 
     /// encode to base64 string (guaranteed to be success as we control the data inside).
     /// this returns normalized form (with trailing = if needed)
     pub fn to_base64(&self) -> String {
-        base64::encode(&self.0)
+        Self::B64_ENGINE.encode(self.0.as_slice())
     }
 
     pub fn as_slice(&self) -> &[u8] {
@@ -135,7 +148,7 @@ impl From<Binary> for Vec<u8> {
     }
 }
 
-/// Implement `encoding::Binary == std::vec::Vec<u8>`
+/// Implement `encoding::Binary == alloc::vec::Vec<u8>`
 impl PartialEq<Vec<u8>> for Binary {
     fn eq(&self, rhs: &Vec<u8>) -> bool {
         // Use Vec<u8> == Vec<u8>
@@ -143,7 +156,7 @@ impl PartialEq<Vec<u8>> for Binary {
     }
 }
 
-/// Implement `std::vec::Vec<u8> == encoding::Binary`
+/// Implement `alloc::vec::Vec<u8> == encoding::Binary`
 impl PartialEq<Binary> for Vec<u8> {
     fn eq(&self, rhs: &Binary) -> bool {
         // Use Vec<u8> == Vec<u8>
@@ -241,25 +254,6 @@ mod tests {
     use crate::assert_hash_works;
     use crate::errors::StdError;
     use crate::serde::{from_slice, to_vec};
-    use std::collections::HashSet;
-
-    #[test]
-    fn encode_decode() {
-        let binary: &[u8] = b"hello";
-        let encoded = Binary::from(binary).to_base64();
-        assert_eq!(8, encoded.len());
-        let decoded = Binary::from_base64(&encoded).unwrap();
-        assert_eq!(binary, decoded.as_slice());
-    }
-
-    #[test]
-    fn encode_decode_non_ascii() {
-        let binary = vec![12u8, 187, 0, 17, 250, 1];
-        let encoded = Binary(binary.clone()).to_base64();
-        assert_eq!(8, encoded.len());
-        let decoded = Binary::from_base64(&encoded).unwrap();
-        assert_eq!(binary.deref(), decoded.deref());
-    }
 
     #[test]
     fn to_array_works() {
@@ -313,29 +307,32 @@ mod tests {
     }
 
     #[test]
-    fn from_valid_string() {
-        let valid_base64 = "cmFuZG9taVo=";
-        let binary = Binary::from_base64(valid_base64).unwrap();
-        assert_eq!(b"randomiZ", binary.as_slice());
+    fn test_base64_encoding_success() {
+        for (value, encoded, encoded_no_pad) in [
+            (&b""[..], "", ""),
+            (&b"hello"[..], "aGVsbG8=", "aGVsbG8"),
+            (&b"\x0C\xBB\x00\x11\xFA\x01"[..], "DLsAEfoB", "DLsAEfoB"),
+            (&b"rand"[..], "cmFuZA==", "cmFuZA"),
+            (&b"rand"[..], "cmFuZA==", "cmFuZA="),
+            (&b"randomiZ"[..], "cmFuZG9taVo=", "cmFuZG9taVo"),
+        ] {
+            let value = Binary::from(value);
+            assert_eq!(encoded, value.to_base64());
+            assert_eq!(Ok(value.clone()), Binary::from_base64(encoded));
+            assert_eq!(Ok(value.clone()), Binary::from_base64(encoded_no_pad));
+        }
     }
 
-    // this accepts input without a trailing = but outputs normal form
     #[test]
-    fn from_shortened_string() {
-        let short = "cmFuZG9taVo";
-        let long = "cmFuZG9taVo=";
-        let binary = Binary::from_base64(short).unwrap();
-        assert_eq!(b"randomiZ", binary.as_slice());
-        assert_eq!(long, binary.to_base64());
-    }
-
-    #[test]
-    fn from_invalid_string() {
-        let invalid_base64 = "cm%uZG9taVo";
-        let res = Binary::from_base64(invalid_base64);
-        match res.unwrap_err() {
-            StdError::InvalidBase64 { msg, .. } => assert_eq!(msg, "Invalid byte 37, offset 2."),
-            _ => panic!("Unexpected error type"),
+    fn test_base64_encoding_error() {
+        for (invalid_base64, want) in [
+            ("cm%uZG9taVo", "Invalid byte 37, offset 2."),
+            ("cmFuZ", "Encoded text cannot have a 6-bit remainder."),
+        ] {
+            match Binary::from_base64(invalid_base64) {
+                Err(StdError::InvalidBase64 { msg }) => assert_eq!(want, msg),
+                result => panic!("Unexpected result: {result:?}"),
+            }
         }
     }
 
@@ -520,6 +517,8 @@ mod tests {
     /// This requires Hash and Eq to be implemented
     #[test]
     fn binary_can_be_used_in_hash_set() {
+        use std::collections::HashSet;
+
         let a1 = Binary::from([0, 187, 61, 11, 250, 0]);
         let a2 = Binary::from([0, 187, 61, 11, 250, 0]);
         let b = Binary::from([16, 21, 33, 0, 255, 9]);
