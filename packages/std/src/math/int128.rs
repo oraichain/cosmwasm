@@ -530,6 +530,15 @@ mod tests {
     }
 
     #[test]
+    fn int128_not_works() {
+        assert_eq!(!Int128::new(222), Int128::new(!222));
+        assert_eq!(!Int128::new(-222), Int128::new(!-222));
+
+        assert_eq!(!Int128::MAX, Int128::new(!i128::MAX));
+        assert_eq!(!Int128::MIN, Int128::new(!i128::MIN));
+    }
+
+    #[test]
     fn int128_zero_works() {
         let zero = Int128::zero();
         assert_eq!(zero.to_be_bytes(), [0; 16]);
@@ -616,11 +625,17 @@ mod tests {
 
     #[test]
     fn int128_display_padding_works() {
+        // width > natural representation
         let a = Int128::from(123u64);
         assert_eq!(format!("Embedded: {a:05}"), "Embedded: 00123");
-
         let a = Int128::from(-123i64);
         assert_eq!(format!("Embedded: {a:05}"), "Embedded: -0123");
+
+        // width < natural representation
+        let a = Int128::from(123u64);
+        assert_eq!(format!("Embedded: {a:02}"), "Embedded: 123");
+        let a = Int128::from(-123i64);
+        assert_eq!(format!("Embedded: {a:02}"), "Embedded: -123");
     }
 
     #[test]

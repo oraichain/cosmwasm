@@ -4,6 +4,7 @@ use core::ops::{
     Sub, SubAssign,
 };
 use core::str::FromStr;
+use std::ops::Not;
 
 use forward_ref::{forward_ref_binop, forward_ref_op_assign};
 use schemars::JsonSchema;
@@ -515,6 +516,14 @@ impl Rem for Uint128 {
 }
 forward_ref_binop!(impl Rem, rem for Uint128, Uint128);
 
+impl Not for Uint128 {
+    type Output = Self;
+
+    fn not(self) -> Self::Output {
+        Self(!self.0)
+    }
+}
+
 impl RemAssign<Uint128> for Uint128 {
     fn rem_assign(&mut self, rhs: Uint128) {
         *self = *self % rhs;
@@ -608,6 +617,14 @@ mod tests {
     }
 
     #[test]
+    fn uint128_not_works() {
+        assert_eq!(!Uint128::new(1234806), Uint128::new(!1234806));
+
+        assert_eq!(!Uint128::MAX, Uint128::new(!u128::MAX));
+        assert_eq!(!Uint128::MIN, Uint128::new(!u128::MIN));
+    }
+
+    #[test]
     fn uint128_zero_works() {
         let zero = Uint128::zero();
         assert_eq!(
@@ -673,8 +690,13 @@ mod tests {
 
     #[test]
     fn uint128_display_padding_works() {
+        // width > natural representation
         let a = Uint128::from(123u64);
         assert_eq!(format!("Embedded: {a:05}"), "Embedded: 00123");
+
+        // width < natural representation
+        let a = Uint128::from(123u64);
+        assert_eq!(format!("Embedded: {a:02}"), "Embedded: 123");
     }
 
     #[test]

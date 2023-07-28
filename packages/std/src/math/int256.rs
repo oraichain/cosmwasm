@@ -371,12 +371,7 @@ impl From<Int256> for String {
 
 impl fmt::Display for Int256 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // The inner type doesn't work as expected with padding, so we
-        // work around that. Remove this code when the upstream padding is fixed.
-        let unpadded = self.0.to_string();
-        let numeric = unpadded.strip_prefix('-').unwrap_or(&unpadded);
-
-        f.pad_integral(self >= &Self::zero(), "", numeric)
+        self.0.fmt(f)
     }
 }
 
@@ -588,6 +583,18 @@ mod tests {
     }
 
     #[test]
+    fn int256_not_works() {
+        let num = Int256::new([1; 32]);
+        let a = (!num).to_be_bytes();
+        assert_eq!(a, [254; 32]);
+
+        assert_eq!(!Int256::from(-1234806i128), Int256::from(!-1234806i128));
+
+        assert_eq!(!Int256::MAX, Int256::MIN);
+        assert_eq!(!Int256::MIN, Int256::MAX);
+    }
+
+    #[test]
     fn int256_zero_works() {
         let zero = Int256::zero();
         assert_eq!(zero.to_be_bytes(), [0; 32]);
@@ -681,11 +688,17 @@ mod tests {
 
     #[test]
     fn int256_display_padding_works() {
+        // width > natural representation
         let a = Int256::from(123u64);
         assert_eq!(format!("Embedded: {a:05}"), "Embedded: 00123");
-
         let a = Int256::from(-123i64);
         assert_eq!(format!("Embedded: {a:05}"), "Embedded: -0123");
+
+        // width < natural representation
+        let a = Int256::from(123u64);
+        assert_eq!(format!("Embedded: {a:02}"), "Embedded: 123");
+        let a = Int256::from(-123i64);
+        assert_eq!(format!("Embedded: {a:02}"), "Embedded: -123");
     }
 
     #[test]

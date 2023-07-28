@@ -504,6 +504,15 @@ mod tests {
     }
 
     #[test]
+    fn int64_not_works() {
+        assert_eq!(!Int64::new(222), Int64::new(!222));
+        assert_eq!(!Int64::new(-222), Int64::new(!-222));
+
+        assert_eq!(!Int64::MAX, Int64::new(!i64::MAX));
+        assert_eq!(!Int64::MIN, Int64::new(!i64::MIN));
+    }
+
+    #[test]
     fn int64_zero_works() {
         let zero = Int64::zero();
         assert_eq!(zero.to_be_bytes(), [0; 8]);
@@ -586,11 +595,17 @@ mod tests {
 
     #[test]
     fn int64_display_padding_works() {
+        // width > natural representation
         let a = Int64::from(123i64);
         assert_eq!(format!("Embedded: {a:05}"), "Embedded: 00123");
-
         let a = Int64::from(-123i64);
         assert_eq!(format!("Embedded: {a:05}"), "Embedded: -0123");
+
+        // width < natural representation
+        let a = Int64::from(123i64);
+        assert_eq!(format!("Embedded: {a:02}"), "Embedded: 123");
+        let a = Int64::from(-123i64);
+        assert_eq!(format!("Embedded: {a:02}"), "Embedded: -123");
     }
 
     #[test]

@@ -7,6 +7,7 @@ use core::str::FromStr;
 use forward_ref::{forward_ref_binop, forward_ref_op_assign};
 use schemars::JsonSchema;
 use serde::{de, ser, Deserialize, Deserializer, Serialize};
+use std::ops::Not;
 
 use crate::errors::{
     CheckedMultiplyFractionError, CheckedMultiplyRatioError, ConversionOverflowError,
@@ -419,11 +420,7 @@ impl From<Uint256> for String {
 
 impl fmt::Display for Uint256 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // The inner type doesn't work as expected with padding, so we
-        // work around that.
-        let unpadded = self.0.to_string();
-
-        f.pad_integral(true, "", &unpadded)
+        self.0.fmt(f)
     }
 }
 
@@ -499,6 +496,14 @@ impl Rem for Uint256 {
     }
 }
 forward_ref_binop!(impl Rem, rem for Uint256, Uint256);
+
+impl Not for Uint256 {
+    type Output = Self;
+
+    fn not(self) -> Self::Output {
+        Self(!self.0)
+    }
+}
 
 impl RemAssign<Uint256> for Uint256 {
     fn rem_assign(&mut self, rhs: Uint256) {
@@ -682,6 +687,16 @@ mod tests {
         let num = Uint256::new(be_bytes);
         let resulting_bytes: [u8; 32] = num.to_be_bytes();
         assert_eq!(be_bytes, resulting_bytes);
+    }
+
+    #[test]
+    fn uint256_not_works() {
+        let num = Uint256::new([1; 32]);
+        let a = (!num).to_be_bytes();
+        assert_eq!(a, [254; 32]);
+
+        assert_eq!(!Uint256::MAX, Uint256::MIN);
+        assert_eq!(!Uint256::MIN, Uint256::MAX);
     }
 
     #[test]
@@ -1104,8 +1119,13 @@ mod tests {
 
     #[test]
     fn uint256_display_padding_works() {
+        // width > natural representation
         let a = Uint256::from(123u64);
         assert_eq!(format!("Embedded: {a:05}"), "Embedded: 00123");
+
+        // width < natural representation
+        let a = Uint256::from(123u64);
+        assert_eq!(format!("Embedded: {a:02}"), "Embedded: 123");
     }
 
     #[test]

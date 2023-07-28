@@ -6,6 +6,7 @@ use core::ops::{
 use forward_ref::{forward_ref_binop, forward_ref_op_assign};
 use schemars::JsonSchema;
 use serde::{de, ser, Deserialize, Deserializer, Serialize};
+use std::ops::Not;
 
 use crate::errors::{
     CheckedMultiplyFractionError, CheckedMultiplyRatioError, DivideByZeroError, OverflowError,
@@ -406,6 +407,14 @@ impl Rem for Uint64 {
 }
 forward_ref_binop!(impl Rem, rem for Uint64, Uint64);
 
+impl Not for Uint64 {
+    type Output = Self;
+
+    fn not(self) -> Self::Output {
+        Self(!self.0)
+    }
+}
+
 impl RemAssign<Uint64> for Uint64 {
     fn rem_assign(&mut self, rhs: Uint64) {
         *self = *self % rhs;
@@ -558,6 +567,14 @@ mod tests {
     }
 
     #[test]
+    fn uint64_not_works() {
+        assert_eq!(!Uint64::new(1234806), Uint64::new(!1234806));
+
+        assert_eq!(!Uint64::MAX, Uint64::new(!u64::MAX));
+        assert_eq!(!Uint64::MIN, Uint64::new(!u64::MIN));
+    }
+
+    #[test]
     fn uint64_zero_works() {
         let zero = Uint64::zero();
         assert_eq!(zero.to_be_bytes(), [0, 0, 0, 0, 0, 0, 0, 0]);
@@ -614,8 +631,13 @@ mod tests {
 
     #[test]
     fn uint64_display_padding_works() {
+        // width > natural representation
         let a = Uint64::from(123u64);
         assert_eq!(format!("Embedded: {a:05}"), "Embedded: 00123");
+
+        // width < natural representation
+        let a = Uint64::from(123u64);
+        assert_eq!(format!("Embedded: {a:02}"), "Embedded: 123");
     }
 
     #[test]
