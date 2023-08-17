@@ -11,8 +11,10 @@ and this project adheres to
 - cosmwasm-std: Implement `Not` for `Uint{64,128,256}` ([#1799]).
 - cosmwasm-std: Implement `into_empty` for `QuerierWrapper`, `Deps` and
   `DepsMut`.
+- cosmwasm-std: Add iterators for `Coins` ([#1806]).
 
 [#1799]: https://github.com/CosmWasm/cosmwasm/pull/1799
+[#1806]: https://github.com/CosmWasm/cosmwasm/pull/1806
 
 ### Changed
 
@@ -35,6 +37,12 @@ and this project adheres to
 [#1701]: https://github.com/CosmWasm/cosmwasm/pull/1701
 [#1786]: https://github.com/CosmWasm/cosmwasm/pull/1786
 [#1793]: https://github.com/CosmWasm/cosmwasm/pull/1793
+
+## [1.3.2] - 2023-08-15
+
+### Fixed
+
+- cosmwasm-std: Export `CoinFromStrError`, `CoinsError` and `DivisionError`
 
 ## [1.3.1] - 2023-07-26
 
@@ -1823,7 +1831,8 @@ Some main points:
 
 All future Changelog entries will reference this base
 
-[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v1.3.1...HEAD
+[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v1.3.2...HEAD
+[1.3.2]: https://github.com/CosmWasm/cosmwasm/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/CosmWasm/cosmwasm/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.7...v1.3.0
 [1.2.7]: https://github.com/CosmWasm/cosmwasm/compare/v1.2.6...v1.2.7
