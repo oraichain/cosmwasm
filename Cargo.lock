@@ -2674,8 +2674,8 @@ dependencies = [
 
 [[package]]
 name = "wasmer"
-version = "4.1.0"
-source = "git+https://github.com/oraichain/wasmer.git#1187d967114676841a70afa7f53ea154b4bb0bf9"
+version = "4.1.1"
+source = "git+https://github.com/oraichain/wasmer.git#c0cd387a1435886abb00c43523eb19426eefc8fc"
 dependencies = [
  "bytes",
  "cfg-if",
@@ -2701,8 +2701,8 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "4.1.0"
-source = "git+https://github.com/oraichain/wasmer.git#1187d967114676841a70afa7f53ea154b4bb0bf9"
+version = "4.1.1"
+source = "git+https://github.com/oraichain/wasmer.git#c0cd387a1435886abb00c43523eb19426eefc8fc"
 dependencies = [
  "backtrace",
  "cfg-if",
@@ -2723,8 +2723,8 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "4.1.0"
-source = "git+https://github.com/oraichain/wasmer.git#1187d967114676841a70afa7f53ea154b4bb0bf9"
+version = "4.1.1"
+source = "git+https://github.com/oraichain/wasmer.git#c0cd387a1435886abb00c43523eb19426eefc8fc"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
@@ -2741,8 +2741,8 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "4.1.0"
-source = "git+https://github.com/oraichain/wasmer.git#1187d967114676841a70afa7f53ea154b4bb0bf9"
+version = "4.1.1"
+source = "git+https://github.com/oraichain/wasmer.git#c0cd387a1435886abb00c43523eb19426eefc8fc"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -2759,8 +2759,8 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "4.1.0"
-source = "git+https://github.com/oraichain/wasmer.git#1187d967114676841a70afa7f53ea154b4bb0bf9"
+version = "4.1.1"
+source = "git+https://github.com/oraichain/wasmer.git#c0cd387a1435886abb00c43523eb19426eefc8fc"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -2770,8 +2770,8 @@ dependencies = [
 
 [[package]]
 name = "wasmer-middlewares"
-version = "4.1.0"
-source = "git+https://github.com/oraichain/wasmer.git#1187d967114676841a70afa7f53ea154b4bb0bf9"
+version = "4.1.1"
+source = "git+https://github.com/oraichain/wasmer.git#c0cd387a1435886abb00c43523eb19426eefc8fc"
 dependencies = [
  "wasmer",
  "wasmer-types",
@@ -2780,8 +2780,8 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "4.1.0"
-source = "git+https://github.com/oraichain/wasmer.git#1187d967114676841a70afa7f53ea154b4bb0bf9"
+version = "4.1.1"
+source = "git+https://github.com/oraichain/wasmer.git#c0cd387a1435886abb00c43523eb19426eefc8fc"
 dependencies = [
  "bytecheck",
  "enum-iterator",
@@ -2795,8 +2795,8 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "4.1.0"
-source = "git+https://github.com/oraichain/wasmer.git#1187d967114676841a70afa7f53ea154b4bb0bf9"
+version = "4.1.1"
+source = "git+https://github.com/oraichain/wasmer.git#c0cd387a1435886abb00c43523eb19426eefc8fc"
 dependencies = [
  "backtrace",
  "cc",
