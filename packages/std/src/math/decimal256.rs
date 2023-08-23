@@ -76,18 +76,56 @@ impl Decimal256 {
     }
 
     /// Convert x% into Decimal256
-    pub fn percent(x: u64) -> Self {
-        Self(Uint256::from(x) * Uint256::from(10_000_000_000_000_000u128))
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use std::str::FromStr;
+    /// # use cosmwasm_std::Decimal256;
+    /// const HALF: Decimal256 = Decimal256::percent(50);
+    ///
+    /// assert_eq!(HALF, Decimal256::from_str("0.5").unwrap());
+    /// ```
+    pub const fn percent(x: u64) -> Self {
+        // multiplication does not overflow since `u64::MAX` * 10**16 is well in u128 range
+        let atomics = (x as u128) * 10_000_000_000_000_000;
+        Self(Uint256::from_u128(atomics))
     }
 
     /// Convert permille (x/1000) into Decimal256
-    pub fn permille(x: u64) -> Self {
-        Self(Uint256::from(x) * Uint256::from(1_000_000_000_000_000u128))
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use std::str::FromStr;
+    /// # use cosmwasm_std::Decimal256;
+    /// const HALF: Decimal256 = Decimal256::permille(500);
+    ///
+    /// assert_eq!(HALF, Decimal256::from_str("0.5").unwrap());
+    /// ```
+    pub const fn permille(x: u64) -> Self {
+        // multiplication does not overflow since `u64::MAX` * 10**15 is well in u128 range
+        let atomics = (x as u128) * 1_000_000_000_000_000;
+        Self(Uint256::from_u128(atomics))
     }
 
     /// Convert basis points (x/10000) into Decimal256
-    pub fn bps(x: u64) -> Self {
-        Self(Uint256::from(x) * Uint256::from(100_000_000_000_000u128))
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use std::str::FromStr;
+    /// # use cosmwasm_std::Decimal256;
+    /// const TWO_BPS: Decimal256 = Decimal256::bps(2);
+    /// const HALF: Decimal256 = Decimal256::bps(5000);
+    ///
+    /// assert_eq!(TWO_BPS, Decimal256::from_str("0.0002").unwrap());
+    /// assert_eq!(HALF, Decimal256::from_str("0.5").unwrap());
+    /// ```
+    pub const fn bps(x: u64) -> Self {
+        // multiplication does not overflow since `u64::MAX` * 10**14 is well in u128 range
+        let atomics = (x as u128) * 100_000_000_000_000;
+        Self(Uint256::from_u128(atomics))
     }
 
     /// Creates a decimal from a number of atomic units and the number
@@ -119,11 +157,14 @@ impl Decimal256 {
         decimal_places: u32,
     ) -> Result<Self, Decimal256RangeExceeded> {
         let atomics = atomics.into();
-        let ten = Uint256::from(10u64); // TODO: make const
-        Ok(match decimal_places.cmp(&(Self::DECIMAL_PLACES)) {
+        const TEN: Uint256 = Uint256::from_be_bytes([
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 10,
+        ]);
+        Ok(match decimal_places.cmp(&Self::DECIMAL_PLACES) {
             Ordering::Less => {
                 let digits = (Self::DECIMAL_PLACES) - decimal_places; // No overflow because decimal_places < DECIMAL_PLACES
-                let factor = ten.checked_pow(digits).unwrap(); // Safe because digits <= 17
+                let factor = TEN.checked_pow(digits).unwrap(); // Safe because digits <= 17
                 Self(
                     atomics
                         .checked_mul(factor)
@@ -133,7 +174,7 @@ impl Decimal256 {
             Ordering::Equal => Self(atomics),
             Ordering::Greater => {
                 let digits = decimal_places - (Self::DECIMAL_PLACES); // No overflow because decimal_places > DECIMAL_PLACES
-                if let Ok(factor) = ten.checked_pow(digits) {
+                if let Ok(factor) = TEN.checked_pow(digits) {
                     Self(atomics.checked_div(factor).unwrap()) // Safe because factor cannot be zero
                 } else {
                     // In this case `factor` exceeds the Uint256 range.

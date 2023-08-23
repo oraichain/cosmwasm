@@ -11,7 +11,7 @@ use crate::errors::{
     CheckedFromRatioError, CheckedMultiplyRatioError, DivideByZeroError, OverflowError,
     OverflowOperation, RoundUpOverflowError, StdError,
 };
-use crate::forward_ref_partial_eq;
+use crate::{forward_ref_partial_eq, Decimal256};
 
 use super::Fraction;
 use super::Isqrt;
@@ -67,18 +67,56 @@ impl Decimal {
     }
 
     /// Convert x% into Decimal
-    pub fn percent(x: u64) -> Self {
-        Self(((x as u128) * 10_000_000_000_000_000).into())
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use std::str::FromStr;
+    /// # use cosmwasm_std::Decimal;
+    /// const HALF: Decimal = Decimal::percent(50);
+    ///
+    /// assert_eq!(HALF, Decimal::from_str("0.5").unwrap());
+    /// ```
+    pub const fn percent(x: u64) -> Self {
+        // multiplication does not overflow since `u64::MAX` * 10**16 is well in u128 range
+        let atomics = (x as u128) * 10_000_000_000_000_000;
+        Self(Uint128::new(atomics))
     }
 
     /// Convert permille (x/1000) into Decimal
-    pub fn permille(x: u64) -> Self {
-        Self(((x as u128) * 1_000_000_000_000_000).into())
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use std::str::FromStr;
+    /// # use cosmwasm_std::Decimal;
+    /// const HALF: Decimal = Decimal::permille(500);
+    ///
+    /// assert_eq!(HALF, Decimal::from_str("0.5").unwrap());
+    /// ```
+    pub const fn permille(x: u64) -> Self {
+        // multiplication does not overflow since `u64::MAX` * 10**15 is well in u128 range
+        let atomics = (x as u128) * 1_000_000_000_000_000;
+        Self(Uint128::new(atomics))
     }
 
     /// Convert basis points (x/10000) into Decimal
-    pub fn bps(x: u64) -> Self {
-        Self(((x as u128) * 100_000_000_000_000).into())
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use std::str::FromStr;
+    /// # use cosmwasm_std::Decimal;
+    /// const TWO_BPS: Decimal = Decimal::bps(2);
+    /// const HALF: Decimal = Decimal::bps(5000);
+    ///
+    /// assert_eq!(TWO_BPS, Decimal::from_str("0.0002").unwrap());
+    /// assert_eq!(HALF, Decimal::from_str("0.5").unwrap());
+    /// ```
+    pub const fn bps(x: u64) -> Self {
+        // multiplication does not overflow since `u64::MAX` * 10**14 is well in u128 range
+        let atomics = (x as u128) * 100_000_000_000_000;
+        Self(Uint128::new(atomics))
     }
 
     /// Creates a decimal from a number of atomic units and the number
@@ -108,7 +146,7 @@ impl Decimal {
     ) -> Result<Self, DecimalRangeExceeded> {
         let atomics = atomics.into();
         const TEN: Uint128 = Uint128::new(10);
-        Ok(match decimal_places.cmp(&(Self::DECIMAL_PLACES)) {
+        Ok(match decimal_places.cmp(&Self::DECIMAL_PLACES) {
             Ordering::Less => {
                 let digits = (Self::DECIMAL_PLACES) - decimal_places; // No overflow because decimal_places < DECIMAL_PLACES
                 let factor = TEN.checked_pow(digits).unwrap(); // Safe because digits <= 17
@@ -460,6 +498,18 @@ impl Fraction<Uint128> for Decimal {
     }
 }
 
+impl TryFrom<Decimal256> for Decimal {
+    type Error = DecimalRangeExceeded;
+
+    fn try_from(value: Decimal256) -> Result<Self, Self::Error> {
+        value
+            .atomics()
+            .try_into()
+            .map(Decimal)
+            .map_err(|_| DecimalRangeExceeded)
+    }
+}
+
 impl FromStr for Decimal {
     type Err = StdError;
 
@@ -777,6 +827,22 @@ mod tests {
     fn decimal_bps() {
         let value = Decimal::bps(125);
         assert_eq!(value.0, Decimal::DECIMAL_FRACTIONAL / Uint128::from(80u8));
+    }
+
+    #[test]
+    fn decimal_from_decimal256_works() {
+        let too_big = Decimal256::new(Uint256::from(Uint128::MAX) + Uint256::one());
+        assert_eq!(Decimal::try_from(too_big), Err(DecimalRangeExceeded));
+
+        let just_right = Decimal256::new(Uint256::from(Uint128::MAX));
+        assert_eq!(Decimal::try_from(just_right), Ok(Decimal::MAX));
+
+        assert_eq!(Decimal::try_from(Decimal256::zero()), Ok(Decimal::zero()));
+        assert_eq!(Decimal::try_from(Decimal256::one()), Ok(Decimal::one()));
+        assert_eq!(
+            Decimal::try_from(Decimal256::percent(50)),
+            Ok(Decimal::percent(50))
+        );
     }
 
     #[test]
