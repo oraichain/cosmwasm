@@ -6,6 +6,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.4.0-beta.1] - 2023-08-29
+
 ### Added
 
 - cosmwasm-std: Implement `Not` for `Uint{64,128,256}` ([#1799]).
@@ -38,6 +40,9 @@ and this project adheres to
 - cosmwasm-vm: Use `wasmparser` for initial validation instead of `parity-wasm`
   ([#1786])
 - cosmwasm-std: Make constructors `Decimal{,256}::{percent,permille,bps}` const
+- cosmwasm-std: Use new `db_next_key` import to make `skip` and `nth`
+  implementation of `range` iterators more efficient. This requires the
+  `cosmwasm_1_4` feature to be enabled. ([#1838])
 
 [#1667]: https://github.com/CosmWasm/cosmwasm/pull/1667
 [#1674]: https://github.com/CosmWasm/cosmwasm/pull/1674
@@ -46,6 +51,7 @@ and this project adheres to
 [#1701]: https://github.com/CosmWasm/cosmwasm/pull/1701
 [#1786]: https://github.com/CosmWasm/cosmwasm/pull/1786
 [#1793]: https://github.com/CosmWasm/cosmwasm/pull/1793
+[#1838]: https://github.com/CosmWasm/cosmwasm/pull/1838
 
 ## [1.3.3] - 2023-08-22
 
@@ -1847,7 +1853,9 @@ Some main points:
 
 All future Changelog entries will reference this base
 
-[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v1.3.3...HEAD
+[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v1.4.0-beta.1...HEAD
+[1.4.0-beta.1]:
+  https://github.com/CosmWasm/cosmwasm/compare/v1.3.3...v1.4.0-beta.1
 [1.3.3]: https://github.com/CosmWasm/cosmwasm/compare/v1.3.2...v1.3.3
 [1.3.2]: https://github.com/CosmWasm/cosmwasm/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/CosmWasm/cosmwasm/compare/v1.3.0...v1.3.1

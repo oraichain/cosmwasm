@@ -603,7 +603,7 @@ pub fn do_debug<A: BackendApi + 'static, S: Storage + 'static, Q: Querier + 'sta
             &msg,
             DebugInfo {
                 gas_remaining,
-                __lifetime: PhantomData::default(),
+                __lifetime: PhantomData,
             },
         );
     }
