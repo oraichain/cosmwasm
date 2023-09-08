@@ -9,7 +9,12 @@ use schemars::JsonSchema;
 use serde::{de, ser, Deserialize, Deserializer, Serialize};
 
 use crate::errors::{DivideByZeroError, DivisionError, OverflowError, OverflowOperation, StdError};
-use crate::{forward_ref_partial_eq, Uint64};
+use crate::{
+    forward_ref_partial_eq, CheckedMultiplyRatioError, ConversionOverflowError, Int128, Int256,
+    Int512, Uint64,
+};
+
+use super::conversion::shrink_be_int;
 
 /// An implementation of i64 that is using strings for JSON encoding/decoding,
 /// such that the full i64 range can be used for clients that convert JSON numbers to floats,
@@ -85,9 +90,53 @@ impl Int64 {
         self.0 == 0
     }
 
+    #[must_use]
+    pub const fn is_negative(&self) -> bool {
+        self.0.is_negative()
+    }
+
     #[must_use = "this returns the result of the operation, without modifying the original"]
     pub fn pow(self, exp: u32) -> Self {
         Self(self.0.pow(exp))
+    }
+
+    /// Returns `self * numerator / denominator`.
+    ///
+    /// Due to the nature of the integer division involved, the result is always floored.
+    /// E.g. 5 * 99/100 = 4.
+    pub fn checked_multiply_ratio<A: Into<Self>, B: Into<Self>>(
+        &self,
+        numerator: A,
+        denominator: B,
+    ) -> Result<Self, CheckedMultiplyRatioError> {
+        let numerator = numerator.into();
+        let denominator = denominator.into();
+        if denominator.is_zero() {
+            return Err(CheckedMultiplyRatioError::DivideByZero);
+        }
+        match (self.full_mul(numerator) / Int128::from(denominator)).try_into() {
+            Ok(ratio) => Ok(ratio),
+            Err(_) => Err(CheckedMultiplyRatioError::Overflow),
+        }
+    }
+
+    /// Multiplies two [`Int64`] values without overflow, producing an
+    /// [`Int128`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cosmwasm_std::Int64;
+    ///
+    /// let a = Int64::MAX;
+    /// let result = a.full_mul(2i32);
+    /// assert_eq!(result.to_string(), "18446744073709551614");
+    /// ```
+    #[must_use = "this returns the result of the operation, without modifying the original"]
+    pub fn full_mul(self, rhs: impl Into<Self>) -> Int128 {
+        Int128::from(self)
+            .checked_mul(Int128::from(rhs.into()))
+            .unwrap()
     }
 
     pub fn checked_add(self, other: Self) -> Result<Self, OverflowError> {
@@ -260,6 +309,36 @@ impl From<i16> for Int64 {
 impl From<i8> for Int64 {
     fn from(val: i8) -> Self {
         Int64(val.into())
+    }
+}
+
+impl TryFrom<Int128> for Int64 {
+    type Error = ConversionOverflowError;
+
+    fn try_from(value: Int128) -> Result<Self, Self::Error> {
+        shrink_be_int(value.to_be_bytes())
+            .ok_or_else(|| ConversionOverflowError::new("Int128", "Int64", value))
+            .map(Self::from_be_bytes)
+    }
+}
+
+impl TryFrom<Int256> for Int64 {
+    type Error = ConversionOverflowError;
+
+    fn try_from(value: Int256) -> Result<Self, Self::Error> {
+        shrink_be_int(value.to_be_bytes())
+            .ok_or_else(|| ConversionOverflowError::new("Int256", "Int64", value))
+            .map(Self::from_be_bytes)
+    }
+}
+
+impl TryFrom<Int512> for Int64 {
+    type Error = ConversionOverflowError;
+
+    fn try_from(value: Int512) -> Result<Self, Self::Error> {
+        shrink_be_int(value.to_be_bytes())
+            .ok_or_else(|| ConversionOverflowError::new("Int512", "Int64", value))
+            .map(Self::from_be_bytes)
     }
 }
 
@@ -673,6 +752,16 @@ mod tests {
     }
 
     #[test]
+    fn int64_is_negative_works() {
+        assert!(Int64::MIN.is_negative());
+        assert!(Int64::from(-123i32).is_negative());
+
+        assert!(!Int64::MAX.is_negative());
+        assert!(!Int64::zero().is_negative());
+        assert!(!Int64::from(123u32).is_negative());
+    }
+
+    #[test]
     fn int64_wrapping_methods() {
         // wrapping_add
         assert_eq!(
@@ -839,6 +928,56 @@ mod tests {
     #[should_panic]
     fn int64_pow_overflow_panics() {
         _ = Int64::MAX.pow(2u32);
+    }
+
+    #[test]
+    fn int64_checked_multiply_ratio_works() {
+        let base = Int64(500);
+
+        // factor 1/1
+        assert_eq!(base.checked_multiply_ratio(1i64, 1i64).unwrap(), base);
+        assert_eq!(base.checked_multiply_ratio(3i64, 3i64).unwrap(), base);
+        assert_eq!(
+            base.checked_multiply_ratio(654321i64, 654321i64).unwrap(),
+            base
+        );
+        assert_eq!(
+            base.checked_multiply_ratio(i64::MAX, i64::MAX).unwrap(),
+            base
+        );
+
+        // factor 3/2
+        assert_eq!(base.checked_multiply_ratio(3i64, 2i64).unwrap(), Int64(750));
+        assert_eq!(
+            base.checked_multiply_ratio(333333i64, 222222i64).unwrap(),
+            Int64(750)
+        );
+
+        // factor 2/3 (integer devision always floors the result)
+        assert_eq!(base.checked_multiply_ratio(2i64, 3i64).unwrap(), Int64(333));
+        assert_eq!(
+            base.checked_multiply_ratio(222222i64, 333333i64).unwrap(),
+            Int64(333)
+        );
+
+        // factor 5/6 (integer devision always floors the result)
+        assert_eq!(base.checked_multiply_ratio(5i64, 6i64).unwrap(), Int64(416));
+        assert_eq!(
+            base.checked_multiply_ratio(100i64, 120i64).unwrap(),
+            Int64(416)
+        );
+    }
+
+    #[test]
+    fn int64_checked_multiply_ratio_does_not_panic() {
+        assert_eq!(
+            Int64(500i64).checked_multiply_ratio(1i64, 0i64),
+            Err(CheckedMultiplyRatioError::DivideByZero),
+        );
+        assert_eq!(
+            Int64(500i64).checked_multiply_ratio(i64::MAX, 1i64),
+            Err(CheckedMultiplyRatioError::Overflow),
+        );
     }
 
     #[test]

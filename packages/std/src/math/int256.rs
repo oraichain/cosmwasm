@@ -9,11 +9,16 @@ use schemars::JsonSchema;
 use serde::{de, ser, Deserialize, Deserializer, Serialize};
 
 use crate::errors::{DivideByZeroError, DivisionError, OverflowError, OverflowOperation, StdError};
-use crate::{forward_ref_partial_eq, Int128, Int64, Uint128, Uint256, Uint64};
+use crate::{
+    forward_ref_partial_eq, CheckedMultiplyRatioError, ConversionOverflowError, Int128, Int512,
+    Int64, Uint128, Uint256, Uint64,
+};
 
 /// Used internally - we don't want to leak this type since we might change
 /// the implementation in the future.
 use bnum::types::{I256, U256};
+
+use super::conversion::{grow_be_int, shrink_be_int};
 
 /// An implementation of i256 that is using strings for JSON encoding/decoding,
 /// such that the full i256 range can be used for clients that convert JSON numbers to floats,
@@ -61,6 +66,12 @@ impl Int256 {
     #[inline]
     pub const fn one() -> Self {
         Self(I256::ONE)
+    }
+
+    /// A conversion from `i128` that, unlike the one provided by the `From` trait,
+    /// can be used in a `const` context.
+    pub const fn from_i128(v: i128) -> Self {
+        Self::from_be_bytes(grow_be_int(v.to_be_bytes()))
     }
 
     #[must_use]
@@ -134,9 +145,56 @@ impl Int256 {
         self.0.is_zero()
     }
 
+    #[must_use]
+    pub const fn is_negative(&self) -> bool {
+        self.0.is_negative()
+    }
+
     #[must_use = "this returns the result of the operation, without modifying the original"]
     pub fn pow(self, exp: u32) -> Self {
         Self(self.0.pow(exp))
+    }
+
+    /// Returns `self * numerator / denominator`.
+    ///
+    /// Due to the nature of the integer division involved, the result is always floored.
+    /// E.g. 5 * 99/100 = 4.
+    pub fn checked_multiply_ratio<A: Into<Self>, B: Into<Self>>(
+        &self,
+        numerator: A,
+        denominator: B,
+    ) -> Result<Self, CheckedMultiplyRatioError> {
+        let numerator = numerator.into();
+        let denominator = denominator.into();
+        if denominator.is_zero() {
+            return Err(CheckedMultiplyRatioError::DivideByZero);
+        }
+        match (self.full_mul(numerator) / Int512::from(denominator)).try_into() {
+            Ok(ratio) => Ok(ratio),
+            Err(_) => Err(CheckedMultiplyRatioError::Overflow),
+        }
+    }
+
+    /// Multiplies two [`Int256`] values without overflow, producing an
+    /// [`Int512`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cosmwasm_std::Int256;
+    ///
+    /// let a = Int256::MAX;
+    /// let result = a.full_mul(2i32);
+    /// assert_eq!(
+    ///     result.to_string(),
+    ///     "115792089237316195423570985008687907853269984665640564039457584007913129639934"
+    /// );
+    /// ```
+    #[must_use = "this returns the result of the operation, without modifying the original"]
+    pub fn full_mul(self, rhs: impl Into<Self>) -> Int512 {
+        Int512::from(self)
+            .checked_mul(Int512::from(rhs.into()))
+            .unwrap()
     }
 
     pub fn checked_add(self, other: Self) -> Result<Self, OverflowError> {
@@ -351,6 +409,16 @@ impl From<i16> for Int256 {
 impl From<i8> for Int256 {
     fn from(val: i8) -> Self {
         Int256(val.into())
+    }
+}
+
+impl TryFrom<Int512> for Int256 {
+    type Error = ConversionOverflowError;
+
+    fn try_from(value: Int512) -> Result<Self, Self::Error> {
+        shrink_be_int(value.to_be_bytes())
+            .ok_or_else(|| ConversionOverflowError::new("Int512", "Int256", value))
+            .map(Self::from_be_bytes)
     }
 }
 
@@ -682,6 +750,25 @@ mod tests {
     }
 
     #[test]
+    fn int256_from_i128() {
+        assert_eq!(Int256::from_i128(123i128), Int256::from_str("123").unwrap());
+
+        assert_eq!(
+            Int256::from_i128(9785746283745i128),
+            Int256::from_str("9785746283745").unwrap()
+        );
+
+        assert_eq!(
+            Int256::from_i128(i128::MAX).to_string(),
+            i128::MAX.to_string()
+        );
+        assert_eq!(
+            Int256::from_i128(i128::MIN).to_string(),
+            i128::MIN.to_string()
+        );
+    }
+
+    #[test]
     fn int256_implements_display() {
         let a = Int256::from(12345u32);
         assert_eq!(format!("Embedded: {a}"), "Embedded: 12345");
@@ -783,6 +870,16 @@ mod tests {
         assert!(!Int256::from(1u32).is_zero());
         assert!(!Int256::from(123u32).is_zero());
         assert!(!Int256::from(-123i32).is_zero());
+    }
+
+    #[test]
+    fn int256_is_negative_works() {
+        assert!(Int256::MIN.is_negative());
+        assert!(Int256::from(-123i32).is_negative());
+
+        assert!(!Int256::MAX.is_negative());
+        assert!(!Int256::zero().is_negative());
+        assert!(!Int256::from(123u32).is_negative());
     }
 
     #[test]
@@ -952,6 +1049,65 @@ mod tests {
     #[should_panic]
     fn int256_pow_overflow_panics() {
         _ = Int256::MAX.pow(2u32);
+    }
+
+    #[test]
+    fn int256_checked_multiply_ratio_works() {
+        let base = Int256::from_i128(500);
+
+        // factor 1/1
+        assert_eq!(base.checked_multiply_ratio(1i128, 1i128).unwrap(), base);
+        assert_eq!(base.checked_multiply_ratio(3i128, 3i128).unwrap(), base);
+        assert_eq!(
+            base.checked_multiply_ratio(654321i128, 654321i128).unwrap(),
+            base
+        );
+        assert_eq!(
+            base.checked_multiply_ratio(i128::MAX, i128::MAX).unwrap(),
+            base
+        );
+
+        // factor 3/2
+        assert_eq!(
+            base.checked_multiply_ratio(3i128, 2i128).unwrap(),
+            Int256::from_i128(750)
+        );
+        assert_eq!(
+            base.checked_multiply_ratio(333333i128, 222222i128).unwrap(),
+            Int256::from_i128(750)
+        );
+
+        // factor 2/3 (integer devision always floors the result)
+        assert_eq!(
+            base.checked_multiply_ratio(2i128, 3i128).unwrap(),
+            Int256::from_i128(333)
+        );
+        assert_eq!(
+            base.checked_multiply_ratio(222222i128, 333333i128).unwrap(),
+            Int256::from_i128(333)
+        );
+
+        // factor 5/6 (integer devision always floors the result)
+        assert_eq!(
+            base.checked_multiply_ratio(5i128, 6i128).unwrap(),
+            Int256::from_i128(416)
+        );
+        assert_eq!(
+            base.checked_multiply_ratio(100i128, 120i128).unwrap(),
+            Int256::from_i128(416)
+        );
+    }
+
+    #[test]
+    fn int256_checked_multiply_ratio_does_not_panic() {
+        assert_eq!(
+            Int256::from_i128(500i128).checked_multiply_ratio(1i128, 0i128),
+            Err(CheckedMultiplyRatioError::DivideByZero),
+        );
+        assert_eq!(
+            Int256::MAX.checked_multiply_ratio(Int256::MAX, 1i128),
+            Err(CheckedMultiplyRatioError::Overflow),
+        );
     }
 
     #[test]
