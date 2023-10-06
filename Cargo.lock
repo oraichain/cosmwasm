@@ -703,6 +703,7 @@ dependencies = [
  "arkworks-utils",
  "criterion",
  "digest 0.10.7",
+ "ecdsa",
  "ed25519-zebra",
  "english-numbers",
  "hex",
@@ -984,6 +985,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "crossbeam-queue"
+version = "0.3.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1cfb3ea8a53f37c40dea2c7bedcbd88bdfae54f5e2175d6ecaff1c988353add"
+dependencies = [
+ "cfg-if",
+ "crossbeam-utils",
+]
+
+[[package]]
 name = "crossbeam-utils"
 version = "0.8.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1167,7 +1178,7 @@ checksum = "64fba5a42bd76a17cad4bfa00de168ee1cbfa06a5e8ce992ae880218c05641a9"
 dependencies = [
  "byteorder",
  "dynasm",
- "memmap2",
+ "memmap2 0.5.10",
 ]
 
 [[package]]
@@ -1643,6 +1654,15 @@ name = "memmap2"
 version = "0.5.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83faa42c0a078c393f6b29d5db232d8be22776a891f8f56e5284faee4a20b327"
+dependencies = [
+ "libc",
+]
+
+[[package]]
+name = "memmap2"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d28bba84adfe6646737845bc5ebbfa2c08424eb1c37e94a1fd2a82adb56a872"
 dependencies = [
  "libc",
 ]
@@ -2205,6 +2225,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "self_cell"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c309e515543e67811222dbc9e3dd7e1056279b782e1dacffe4242b718734fb6"
+
+[[package]]
 name = "semver"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2322,6 +2348,16 @@ checksum = "75872d278a8f37ef87fa0ddbda7802605cb18344497949862c0d4dcb291eba60"
 dependencies = [
  "digest 0.10.7",
  "keccak",
+]
+
+[[package]]
+name = "shared-buffer"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2cf61602ee61e2f83dd016b3e6387245291cf728ea071c378b35088125b4d995"
+dependencies = [
+ "bytes",
+ "memmap2 0.6.2",
 ]
 
 [[package]]
@@ -2703,8 +2739,8 @@ dependencies = [
 
 [[package]]
 name = "wasmer"
-version = "4.1.1"
-source = "git+https://github.com/oraichain/wasmer.git#c0cd387a1435886abb00c43523eb19426eefc8fc"
+version = "4.2.2"
+source = "git+https://github.com/oraichain/wasmer.git#304a934ead55a3090050544c6293be00e34710ce"
 dependencies = [
  "bytes",
  "cfg-if",
@@ -2715,6 +2751,7 @@ dependencies = [
  "rustc-demangle",
  "serde",
  "serde-wasm-bindgen",
+ "shared-buffer",
  "target-lexicon",
  "thiserror",
  "wasm-bindgen",
@@ -2730,18 +2767,22 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "4.1.1"
-source = "git+https://github.com/oraichain/wasmer.git#c0cd387a1435886abb00c43523eb19426eefc8fc"
+version = "4.2.2"
+source = "git+https://github.com/oraichain/wasmer.git#304a934ead55a3090050544c6293be00e34710ce"
 dependencies = [
  "backtrace",
+ "bytes",
  "cfg-if",
  "enum-iterator",
  "enumset",
  "lazy_static",
  "leb128",
- "memmap2",
+ "memmap2 0.5.10",
  "more-asserts",
  "region",
+ "rkyv",
+ "self_cell",
+ "shared-buffer",
  "smallvec",
  "thiserror",
  "wasmer-types",
@@ -2752,8 +2793,8 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "4.1.1"
-source = "git+https://github.com/oraichain/wasmer.git#c0cd387a1435886abb00c43523eb19426eefc8fc"
+version = "4.2.2"
+source = "git+https://github.com/oraichain/wasmer.git#304a934ead55a3090050544c6293be00e34710ce"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
@@ -2770,8 +2811,8 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "4.1.1"
-source = "git+https://github.com/oraichain/wasmer.git#c0cd387a1435886abb00c43523eb19426eefc8fc"
+version = "4.2.2"
+source = "git+https://github.com/oraichain/wasmer.git#304a934ead55a3090050544c6293be00e34710ce"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -2788,8 +2829,8 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "4.1.1"
-source = "git+https://github.com/oraichain/wasmer.git#c0cd387a1435886abb00c43523eb19426eefc8fc"
+version = "4.2.2"
+source = "git+https://github.com/oraichain/wasmer.git#304a934ead55a3090050544c6293be00e34710ce"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -2799,8 +2840,8 @@ dependencies = [
 
 [[package]]
 name = "wasmer-middlewares"
-version = "4.1.1"
-source = "git+https://github.com/oraichain/wasmer.git#c0cd387a1435886abb00c43523eb19426eefc8fc"
+version = "4.2.2"
+source = "git+https://github.com/oraichain/wasmer.git#304a934ead55a3090050544c6293be00e34710ce"
 dependencies = [
  "wasmer",
  "wasmer-types",
@@ -2809,8 +2850,8 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "4.1.1"
-source = "git+https://github.com/oraichain/wasmer.git#c0cd387a1435886abb00c43523eb19426eefc8fc"
+version = "4.2.2"
+source = "git+https://github.com/oraichain/wasmer.git#304a934ead55a3090050544c6293be00e34710ce"
 dependencies = [
  "bytecheck",
  "enum-iterator",
@@ -2824,13 +2865,14 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "4.1.1"
-source = "git+https://github.com/oraichain/wasmer.git#c0cd387a1435886abb00c43523eb19426eefc8fc"
+version = "4.2.2"
+source = "git+https://github.com/oraichain/wasmer.git#304a934ead55a3090050544c6293be00e34710ce"
 dependencies = [
  "backtrace",
  "cc",
  "cfg-if",
  "corosensei",
+ "crossbeam-queue",
  "dashmap",
  "derivative",
  "enum-iterator",

@@ -26,6 +26,8 @@ sha2 = "0.10"
 sha3 = "0.10"
 rand_core = { version = "0.6", features = ["getrandom"] }
 thiserror = "1.0.38"
+# Not used directly, but needed to bump transitive dependency, see: https://github.com/CosmWasm/cosmwasm/pull/1899 for details.
+ecdsa = "0.16.2"
 
 # zk import 
 ark-ff = { version = "^0.3.0", default-features = false }
