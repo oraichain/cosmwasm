@@ -3,6 +3,7 @@ use std::collections::HashSet;
 
 use wasmer::wasmparser::Import;
 use wasmer::wasmparser::TypeRef;
+use wasmer::Module;
 
 use crate::capabilities::required_capabilities_from_module;
 use crate::errors::{VmError, VmResult};
@@ -144,29 +145,13 @@ fn check_wasm_memories(module: &ParsedWasm) -> VmResult<()> {
     Ok(())
 }
 
-fn check_interface_version(module: &ParsedWasm) -> VmResult<()> {
-    // support cosmwasm_vm_version_4 (v0.11.0 - v0.13.2)
-    if module
-        .exported_function_names(Some("cosmwasm_vm_version_4"))
-        .len()
-        == 1
-    {
-        return Ok(());
-    }
-
-    let version = get_interface_version(module)?;
-    // version from 4 to 8
-    if version > 0 && version <= INTERFACE_VERSION {
-        Ok(())
-    } else {
-        Err(VmError::static_validation_err(
-                        "Wasm contract has unknown interface_version_* marker export (see https://github.com/CosmWasm/cosmwasm/blob/main/packages/vm/README.md)",
-                ))
-    }
+/// return Ok because there is get_interface_version which also check for specific version
+fn check_interface_version(_module: &ParsedWasm) -> VmResult<()> {
+    Ok(())
 }
 
 /// return interface version, version 4,5 must fix response, version 4 fix info and env
-pub fn get_interface_version(module: impl ExportInfo) -> VmResult<u8> {
+pub fn get_interface_version(module: &Module) -> VmResult<u8> {
     let mut interface_version_exports = module
         .exported_function_names(Some(INTERFACE_VERSION_PREFIX))
         .into_iter();
@@ -184,6 +169,16 @@ pub fn get_interface_version(module: impl ExportInfo) -> VmResult<u8> {
             Ok(version)
         }
     } else {
+        // support cosmwasm_vm_version_4 (v0.11.0 - v0.13.2)
+        if module
+            .exported_function_names(Some("cosmwasm_vm_version_4"))
+            .len()
+            == 1
+        {
+            return Ok(4u8);
+        }
+
+        // contract is not compartible with any cosmwasm version
         Err(VmError::static_validation_err(
             "Wasm contract missing a required marker export: interface_version_*",
         ))
