@@ -15,9 +15,19 @@ and this project adheres to
 - cosmwasm-std: Remove `Mul<Decimal> for Uint128` and
   `Mul<Decimal256> for Uint256`. Use `Uint{128,256}::mul_floor` instead.
   ([#1890])
+- cosmwasm-std: `Uint{64,128}::full_mul` now take `Into<Self>` as an argument.
+  ([#1874])
+- cosmwasm-vm: Make `CacheOptions` non-exhaustive and add a constructor.
+  ([#1898])
+- cosmwasm-std: `Coin::new` now takes `Into<Uint128>` instead of `u128` as the
+  first argument and `DecCoin::new` takes `Into<Decimal256>` instead of
+  `Decimal256`. ([#1902])
 
+[#1874]: https://github.com/CosmWasm/cosmwasm/pull/1874
 [#1879]: https://github.com/CosmWasm/cosmwasm/pull/1879
 [#1890]: https://github.com/CosmWasm/cosmwasm/pull/1890
+[#1898]: https://github.com/CosmWasm/cosmwasm/pull/1898
+[#1902]: https://github.com/CosmWasm/cosmwasm/pull/1902
 
 ## [1.5.0-rc.0]
 
