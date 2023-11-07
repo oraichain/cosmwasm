@@ -1,6 +1,6 @@
 [package]
 name = "cosmwasm-std"
-version = "1.5.0-rc.0"
+version = "1.5.0"
 authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>"]
 edition = "2021"
 description = "Standard library for Wasm based smart contracts on Cosmos blockchains"
@@ -9,7 +9,7 @@ license = "Apache-2.0"
 readme = "README.md"
 
 [package.metadata.docs.rs]
-features = ["abort", "stargate", "staking", "ibc3", "cosmwasm_1_4"]
+features = ["abort", "stargate", "staking", "cosmwasm_1_4"]
 
 [features]
 default = ["iterator", "abort"]
@@ -30,9 +30,6 @@ backtraces = []
 # stargate enables stargate-dependent messages and queries, like raw protobuf messages
 # as well as ibc-related functionality
 stargate = []
-# ibc3 extends ibc messages with ibc-v3 only features. This should only be enabled on contracts
-# that require these types. Without this, they get the smaller ibc-v1 API.
-ibc3 = ["stargate"]
 # This feature makes `BankQuery::Supply` available for the contract to call, but requires
 # the host blockchain to run CosmWasm `1.1.0` or higher.
 cosmwasm_1_1 = []
@@ -51,7 +48,7 @@ cosmwasm_1_4 = ["cosmwasm_1_3"]
 
 [dependencies]
 base64 = "0.21.0"
-cosmwasm-derive = { path = "../derive", version = "1.5.0-rc.0" }
+cosmwasm-derive = { path = "../derive", version = "1.5.0" }
 derivative = "2"
 forward_ref = "1"
 hex = "0.4"
@@ -61,14 +58,14 @@ serde = { version = "1.0.103", default-features = false, features = [
   "derive",
   "alloc",
 ] }
-serde-json-wasm = { version = "0.5.0" }
+serde-json-wasm = { version = "1.0.0" }
 thiserror = "1.0.26"
 bnum = "0.8.0"
 static_assertions = "1.1.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 bech32 = "0.9.1"
-cosmwasm-crypto = { path = "../crypto", version = "1.5.0-rc.0" }
+cosmwasm-crypto = { path = "../crypto", version = "1.5.0" }
 
 [dev-dependencies]
 cosmwasm-schema = { path = "../schema" }

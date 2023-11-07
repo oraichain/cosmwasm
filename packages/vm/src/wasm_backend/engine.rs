@@ -22,12 +22,12 @@ const MAX_WASM_PAGES: u32 = 65536;
 
 fn cost(_operator: &Operator) -> u64 {
     // A flat fee for each operation
-    // The target is 1 Teragas per millisecond (see GAS.md).
+    // The target is 1 Teragas per second (see GAS.md).
     //
     // In https://github.com/CosmWasm/cosmwasm/pull/1042 a profiler is developed to
     // identify runtime differences between different Wasm operation, but this is not yet
     // precise enough to derive insights from it.
-    150_000
+    150
 }
 
 /// Creates an engine without a compiler.
@@ -87,16 +87,16 @@ mod tests {
     #[test]
     fn limit_to_pages_works() {
         // rounds down
-        assert_eq!(limit_to_pages(Size(0)), Pages(0));
-        assert_eq!(limit_to_pages(Size(1)), Pages(0));
+        assert_eq!(limit_to_pages(Size::new(0)), Pages(0));
+        assert_eq!(limit_to_pages(Size::new(1)), Pages(0));
         assert_eq!(limit_to_pages(Size::kibi(63)), Pages(0));
         assert_eq!(limit_to_pages(Size::kibi(64)), Pages(1));
         assert_eq!(limit_to_pages(Size::kibi(65)), Pages(1));
-        assert_eq!(limit_to_pages(Size(u32::MAX as usize)), Pages(65535));
+        assert_eq!(limit_to_pages(Size::new(u32::MAX as usize)), Pages(65535));
         // caps at 4 GiB
         assert_eq!(limit_to_pages(Size::gibi(3)), Pages(49152));
         assert_eq!(limit_to_pages(Size::gibi(4)), Pages(65536));
         assert_eq!(limit_to_pages(Size::gibi(5)), Pages(65536));
-        assert_eq!(limit_to_pages(Size(usize::MAX)), Pages(65536));
+        assert_eq!(limit_to_pages(Size::new(usize::MAX)), Pages(65536));
     }
 }

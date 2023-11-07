@@ -3,6 +3,7 @@ use std::collections::HashSet;
 
 use wasmer::wasmparser::Import;
 use wasmer::wasmparser::TypeRef;
+use wasmer::Engine;
 use wasmer::Module;
 
 use crate::capabilities::required_capabilities_from_module;
@@ -10,6 +11,7 @@ use crate::errors::{VmError, VmResult};
 use crate::limited::LimitedDisplay;
 use crate::parsed_wasm::ParsedWasm;
 use crate::static_analysis::ExportInfo;
+use crate::wasm_backend::compile;
 
 /// Lists all imports we provide upon instantiating the instance in Instance::from_module()
 /// This should be updated when new imports are added
@@ -84,6 +86,12 @@ const MAX_IMPORTS: usize = 100;
 
 // support until this version
 pub const INTERFACE_VERSION: u8 = 8;
+const SUPPORTED_INTERFACE_VERSIONS: &[&str] = &[
+    "interface_version_8",
+    "interface_version_7",
+    "interface_version_6",
+    "interface_version_5",
+];
 
 /// Checks if the data is valid wasm and compatibility with the CosmWasm API (imports and exports)
 pub fn check_wasm(wasm_code: &[u8], available_capabilities: &HashSet<String>) -> VmResult<()> {
@@ -146,6 +154,7 @@ fn check_wasm_memories(module: &ParsedWasm) -> VmResult<()> {
 }
 
 /// return Ok because there is get_interface_version which also check for specific version
+/// we want to support multiple interface versions when a contract is called, not when storing
 fn check_interface_version(_module: &ParsedWasm) -> VmResult<()> {
     Ok(())
 }
@@ -162,11 +171,21 @@ pub fn get_interface_version(module: &Module) -> VmResult<u8> {
             ))
         } else {
             // Exactly one interface version found
-            let version = first_interface_version_export[INTERFACE_VERSION_PREFIX.len()..]
+            let interface_version_number = first_interface_version_export
+                [INTERFACE_VERSION_PREFIX.len()..]
                 .parse::<u8>()
                 .unwrap_or_default();
 
-            Ok(version)
+            // since we only support interface_version_8, we need to verify in case there's a different version getting executed
+            if SUPPORTED_INTERFACE_VERSIONS
+                .iter()
+                .any(|&v| v == first_interface_version_export)
+            {
+                return Ok(interface_version_number);
+            }
+            Err(VmError::static_validation_err(
+                        "Wasm contract has unknown interface_version_* marker export (see https://github.com/CosmWasm/cosmwasm/blob/main/packages/vm/README.md)",
+                ))
         }
     } else {
         // support cosmwasm_vm_version_4 (v0.11.0 - v0.13.2)
@@ -448,7 +467,7 @@ mod tests {
     }
 
     #[test]
-    fn check_interface_version_works() {
+    fn get_interface_version_works() {
         // valid
         let wasm = wat::parse_str(
             r#"(module
@@ -462,8 +481,8 @@ mod tests {
             )"#,
         )
         .unwrap();
-        let module = ParsedWasm::parse(&wasm).unwrap();
-        check_interface_version(&module).unwrap();
+        let module = Module::new(&Engine::default(), &wasm).unwrap();
+        get_interface_version(&module).unwrap();
 
         #[cfg(feature = "allow_interface_version_7")]
         {
@@ -481,7 +500,7 @@ mod tests {
             )
             .unwrap();
             let module = ParsedWasm::parse(&wasm).unwrap();
-            check_interface_version(&module).unwrap();
+            get_interface_version(&module).unwrap();
         }
 
         // missing
@@ -496,8 +515,8 @@ mod tests {
             )"#,
         )
         .unwrap();
-        let module = ParsedWasm::parse(&wasm).unwrap();
-        match check_interface_version(&module).unwrap_err() {
+        let module = Module::new(&Engine::default(), &wasm).unwrap();
+        match get_interface_version(&module).unwrap_err() {
             VmError::StaticValidationErr { msg, .. } => {
                 assert_eq!(
                     msg,
@@ -521,8 +540,8 @@ mod tests {
             )"#,
         )
         .unwrap();
-        let module = ParsedWasm::parse(&wasm).unwrap();
-        match check_interface_version(&module).unwrap_err() {
+        let module = Module::new(&Engine::default(), &wasm).unwrap();
+        match get_interface_version(&module).unwrap_err() {
             VmError::StaticValidationErr { msg, .. } => {
                 assert_eq!(
                     msg,
@@ -545,9 +564,9 @@ mod tests {
             )"#,
         )
         .unwrap();
-        let module = ParsedWasm::parse(&wasm).unwrap();
+        let module = Module::new(&Engine::default(), &wasm).unwrap();
         // we support all version
-        assert!(check_interface_version(&module).is_ok());
+        assert!(get_interface_version(&module).is_ok());
 
         // Unknown value
         let wasm = wat::parse_str(
@@ -562,8 +581,8 @@ mod tests {
             )"#,
         )
         .unwrap();
-        let module = ParsedWasm::parse(&wasm).unwrap();
-        match check_interface_version(&module).unwrap_err() {
+        let module = Module::new(&Engine::default(), &wasm).unwrap();
+        match get_interface_version(&module).unwrap_err() {
             VmError::StaticValidationErr { msg, .. } => {
                 assert_eq!(msg, "Wasm contract has unknown interface_version_* marker export (see https://github.com/CosmWasm/cosmwasm/blob/main/packages/vm/README.md)");
             }
