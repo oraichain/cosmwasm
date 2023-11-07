@@ -26,12 +26,12 @@ pub fn run_contract(src: &str) {
     let mut contract = vec![];
     f.read_to_end(&mut contract).unwrap();
 
-    let options = CacheOptions {
-        base_dir: TempDir::new().unwrap().into_path(),
-        available_capabilities: HashSet::default(),
-        memory_cache_size: MEMORY_CACHE_SIZE,
-        instance_memory_limit: DEFAULT_MEMORY_LIMIT,
-    };
+    let options = CacheOptions::new(
+        TempDir::new().unwrap().into_path(),
+        HashSet::default(),
+        MEMORY_CACHE_SIZE,
+        DEFAULT_MEMORY_LIMIT,
+    );
 
     let cache = unsafe { Cache::new(options).unwrap() };
 
