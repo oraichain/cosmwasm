@@ -81,7 +81,7 @@ mod tests {
     use wasmer_middlewares::metering::set_remaining_points;
 
     const TESTING_MEMORY_LIMIT: Option<Size> = Some(Size::mebi(16));
-    const TESTING_GAS_LIMIT: u64 = 500_000_000;
+    const TESTING_GAS_LIMIT: u64 = 500_000;
 
     #[test]
     fn pinned_memory_cache_run() {
@@ -92,7 +92,7 @@ mod tests {
             r#"(module
             (type $t0 (func (param i32) (result i32)))
             (func $add_one (export "add_one") (type $t0) (param $p0 i32) (result i32)
-                get_local $p0
+                local.get $p0
                 i32.const 1
                 i32.add)
             )"#,
@@ -144,7 +144,7 @@ mod tests {
             r#"(module
             (type $t0 (func (param i32) (result i32)))
             (func $add_one (export "add_one") (type $t0) (param $p0 i32) (result i32)
-                get_local $p0
+                local.get $p0
                 i32.const 1
                 i32.add)
             )"#,
@@ -176,7 +176,7 @@ mod tests {
             r#"(module
             (type $t0 (func (param i32) (result i32)))
             (func $add_one (export "add_one") (type $t0) (param $p0 i32) (result i32)
-                get_local $p0
+                local.get $p0
                 i32.const 1
                 i32.add)
             )"#,
@@ -208,7 +208,7 @@ mod tests {
             r#"(module
             (type $t0 (func (param i32) (result i32)))
             (func $add_one (export "add_one") (type $t0) (param $p0 i32) (result i32)
-                get_local $p0
+                local.get $p0
                 i32.const 1
                 i32.add)
             )"#,
@@ -219,7 +219,7 @@ mod tests {
             r#"(module
             (type $t0 (func (param i32) (result i32)))
             (func $add_one (export "add_two") (type $t0) (param $p0 i32) (result i32)
-                get_local $p0
+                local.get $p0
                 i32.const 2
                 i32.add)
             )"#,

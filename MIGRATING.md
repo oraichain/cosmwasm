@@ -19,6 +19,10 @@ major releases of `cosmwasm`. Note that you can also view the
   # ...
   ```
 
+  If you were using cosmwasm-std's `ibc3` feature, you can remove it, as it is
+  the default now. Depending on your usage, you might have to enable the
+  `stargate` feature instead, since it was previously implied by `ibc3`.
+
 - `ContractInfoResponse::new` now takes all fields of the response as
   parameters:
 
@@ -67,6 +71,40 @@ major releases of `cosmwasm`. Note that you can also view the
   ```diff
   -Coin::new(1234, "uatom")
   +Coin::new(1234u128, "uatom")
+  ```
+
+- When creating a `Binary` or `Size` instance from an inner value, you now have
+  to explicitly call `new`:
+
+  ```diff
+  -Binary(vec![1u8])
+  +Binary::new(vec![1u8])
+  ```
+
+- When accessing the inner value of a `CanonicalAddr` or `Binary`, use
+  `as_slice` instead:
+
+  ```diff
+  -&canonical_addr.0
+  +canonical_addr.as_slice()
+  ```
+
+- If you use any `u128` or `i128` in storage or message types, replace them with
+  `Uint128` and `Int128` respectively to preserve the current serialization.
+  Failing to do this will result in deserialization errors!
+
+  ```diff
+  #[cw_serde]
+  struct MyStorage {
+  -  a: u128,
+  -  b: i128,
+  +  a: Uint128,
+  +  b: Int128,
+  }
+  const map: Map<u128, MyStorage> = Map::new("map");
+
+  -const item: Item<u128> = Item::new("item");
+  +const item: Item<Uint128> = Item::new("item");
   ```
 
 ## 1.4.x -> 1.5.0

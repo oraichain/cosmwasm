@@ -445,7 +445,7 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-crypto"
-version = "1.5.0-rc.0"
+version = "1.5.0"
 dependencies = [
  "ark-bls12-381",
  "ark-bn254",
@@ -469,14 +469,14 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-derive"
-version = "1.5.0-rc.0"
+version = "1.5.0"
 dependencies = [
  "syn 1.0.109",
 ]
 
 [[package]]
 name = "cosmwasm-schema"
-version = "1.5.0-rc.0"
+version = "1.5.0"
 dependencies = [
  "cosmwasm-schema-derive",
  "schemars",
@@ -487,7 +487,7 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-schema-derive"
-version = "1.5.0-rc.0"
+version = "1.5.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -496,7 +496,7 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-std"
-version = "1.5.0-rc.0"
+version = "1.5.0"
 dependencies = [
  "base64",
  "bech32",
@@ -516,7 +516,7 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-vm"
-version = "1.5.0-rc.0"
+version = "1.5.0"
 dependencies = [
  "bitflags",
  "bytecheck",
@@ -1679,18 +1679,18 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.163"
+version = "1.0.192"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2113ab51b87a539ae008b5c6c02dc020ffa39afd2d83cffcb3f4eb2722cebec2"
+checksum = "bca2a08484b285dcb282d0f67b26cadc0df8b19f8c12502c13d966bf9482f001"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde-json-wasm"
-version = "0.5.1"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16a62a1fad1e1828b24acac8f2b468971dade7b8c3c2e672bcadefefb1f8c137"
+checksum = "83c37d03f3b0f6b5f77c11af1e7c772de1c9af83e50bef7bb6069601900ba67b"
 dependencies = [
  "serde",
 ]
@@ -1708,13 +1708,13 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.163"
+version = "1.0.192"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c805777e3930c8883389c602315a24224bcc738b63905ef87cd1420353ea93e"
+checksum = "d6c7207fbec9faa48073f3e3074cbe553af6ea512d7c21ba46e434e70ea9fbc1"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.16",
+ "syn 2.0.37",
 ]
 
 [[package]]

@@ -528,7 +528,7 @@ mod tests {
     use std::io::Write;
     use tempfile::TempDir;
 
-    const TESTING_GAS_LIMIT: u64 = 500_000_000_000; // ~0.5ms
+    const TESTING_GAS_LIMIT: u64 = 500_000_000; // ~0.5ms
     const TESTING_MEMORY_LIMIT: Size = Size::mebi(16);
     const TESTING_OPTIONS: InstanceOptions = InstanceOptions {
         gas_limit: TESTING_GAS_LIMIT,
@@ -542,7 +542,7 @@ mod tests {
     static INVALID_CONTRACT_WAT: &str = r#"(module
         (type $t0 (func (param i32) (result i32)))
         (func $add_one (export "add_one") (type $t0) (param $p0 i32) (result i32)
-            get_local $p0
+            local.get $p0
             i32.const 1
             i32.add))
     "#;
