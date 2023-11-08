@@ -201,6 +201,14 @@ fn check_wasm_exports(module: &ParsedWasm) -> VmResult<()> {
             )));
         }
     }
+
+    // must have instantiate or init method
+    if !available_exports.contains("instantiate") && !available_exports.contains("init") {
+        return Err(VmError::static_validation_err(format!(
+            "Wasm contract doesn't have required export: \"instantiate\". Exports required by VM: {REQUIRED_EXPORTS:?}."
+        )));
+    }
+
     Ok(())
 }
 
