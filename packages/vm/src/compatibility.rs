@@ -3,7 +3,6 @@ use std::collections::HashSet;
 
 use wasmer::wasmparser::Import;
 use wasmer::wasmparser::TypeRef;
-use wasmer::Module;
 
 use crate::capabilities::required_capabilities_from_module;
 use crate::errors::{VmError, VmResult};
@@ -147,81 +146,49 @@ fn check_wasm_memories(module: &ParsedWasm) -> VmResult<()> {
 
 /// return Ok because there is get_interface_version which also check for specific version
 fn check_interface_version(module: &ParsedWasm) -> VmResult<()> {
-    let mut interface_version_exports = module
-        .exported_function_names(Some(INTERFACE_VERSION_PREFIX))
-        .into_iter();
-    if let Some(first_interface_version_export) = interface_version_exports.next() {
-        if interface_version_exports.next().is_some() {
-            Err(VmError::static_validation_err(
-                "Wasm contract contains more than one marker export: interface_version_*",
-            ))
-        } else {
-            // Exactly one interface version found
-            if first_interface_version_export[INTERFACE_VERSION_PREFIX.len()..]
-                .parse::<u8>()
-                .is_ok()
-            {
-                return Ok(());
-            }
-
-            Err(VmError::static_validation_err(
-                "Wasm contract has unknown interface_version_* marker export (see https://github.com/CosmWasm/cosmwasm/blob/main/packages/vm/README.md)",
-            ))
-        }
-    } else {
-        // support cosmwasm_vm_version_4 (v0.11.0 - v0.13.2)
-        if module
-            .exported_function_names(Some("cosmwasm_vm_version_4"))
-            .len()
-            == 1
-        {
-            return Ok(());
-        }
-
-        // contract is not compartible with any cosmwasm version
-        Err(VmError::static_validation_err(
-            "Wasm contract missing a required marker export: interface_version_*",
-        ))
-    }
+    get_interface_version(module)?;
+    Ok(())
 }
 
 /// return interface version, version 4,5 must fix response, version 4 fix info and env
-pub fn get_interface_version(module: &Module) -> VmResult<u8> {
-    let mut interface_version_exports = module
-        .exported_function_names(Some(INTERFACE_VERSION_PREFIX))
-        .into_iter();
-    if let Some(first_interface_version_export) = interface_version_exports.next() {
-        if interface_version_exports.next().is_some() {
-            Err(VmError::static_validation_err(
-                "Wasm contract contains more than one marker export: interface_version_*",
-            ))
-        } else {
-            // Exactly one interface version found
-            if let Ok(version) =
-                first_interface_version_export[INTERFACE_VERSION_PREFIX.len()..].parse::<u8>()
-            {
-                return Ok(version);
-            }
+pub fn get_interface_version(module: impl ExportInfo) -> VmResult<u8> {
+    let function_names = module.exported_function_names(None);
 
-            Err(VmError::static_validation_err(
-                "Wasm contract has unknown interface_version_* marker export (see https://github.com/CosmWasm/cosmwasm/blob/main/packages/vm/README.md)",
-            ))
-        }
-    } else {
-        // support cosmwasm_vm_version_4 (v0.11.0 - v0.13.2)
-        if module
-            .exported_function_names(Some("cosmwasm_vm_version_4"))
-            .len()
-            == 1
-        {
+    let mut first_interface_version_export: Option<&String> = None;
+    for function_name in &function_names {
+        // old version
+        if function_name.eq("cosmwasm_vm_version_4") {
             return Ok(4u8);
         }
 
-        // contract is not compartible with any cosmwasm version
-        Err(VmError::static_validation_err(
-            "Wasm contract missing a required marker export: interface_version_*",
-        ))
+        // check 1 existence
+        if function_name.starts_with(INTERFACE_VERSION_PREFIX) {
+            if first_interface_version_export.is_some() {
+                return Err(VmError::static_validation_err(
+                    "Wasm contract contains more than one marker export: interface_version_*",
+                ));
+            }
+            first_interface_version_export = Some(function_name);
+        }
     }
+
+    if let Some(first_interface_version_export) = first_interface_version_export {
+        // Exactly one interface version found
+        if let Ok(version) =
+            first_interface_version_export[INTERFACE_VERSION_PREFIX.len()..].parse::<u8>()
+        {
+            return Ok(version);
+        }
+
+        return Err(VmError::static_validation_err(
+            "Wasm contract has unknown interface_version_* marker export (see https://github.com/CosmWasm/cosmwasm/blob/main/packages/vm/README.md)",
+        ));
+    }
+
+    // contract is not compartible with any cosmwasm version
+    Err(VmError::static_validation_err(
+        "Wasm contract missing a required marker export: interface_version_*",
+    ))
 }
 
 fn check_wasm_exports(module: &ParsedWasm) -> VmResult<()> {
