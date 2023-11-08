@@ -602,7 +602,7 @@ mod tests {
         fn mock_resp() -> ContractInfoResponse {
             ContractInfoResponse {
                 code_id: 0,
-                creator: "creator".to_string(),
+                creator: Addr::unchecked("creator"),
                 admin: None,
                 pinned: false,
                 ibc_port: None,
@@ -633,7 +633,7 @@ mod tests {
         fn mock_resp() -> ContractInfoResponse {
             ContractInfoResponse {
                 code_id: 0,
-                creator: "creator".to_string(),
+                creator: Addr::unchecked("creator"),
                 admin: None,
                 pinned: false,
                 ibc_port: None,
