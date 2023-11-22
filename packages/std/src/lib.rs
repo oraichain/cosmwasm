@@ -8,6 +8,7 @@ extern crate alloc;
 mod addresses;
 mod assertions;
 mod binary;
+mod checksum;
 mod coin;
 mod coins;
 mod conversion;
@@ -41,6 +42,7 @@ pub mod storage_keys;
 
 pub use crate::addresses::{instantiate2_address, Addr, CanonicalAddr, Instantiate2AddressError};
 pub use crate::binary::Binary;
+pub use crate::checksum::{Checksum, ChecksumError};
 pub use crate::coin::{coin, coins, has_coins, Coin};
 pub use crate::coins::Coins;
 pub use crate::deps::{Deps, DepsMut, OwnedDeps};
@@ -80,9 +82,9 @@ pub use crate::query::{
 #[cfg(all(feature = "stargate", feature = "cosmwasm_1_2"))]
 pub use crate::results::WeightedVoteOption;
 pub use crate::results::{
-    attr, wasm_execute, wasm_instantiate, Attribute, BankMsg, ContractResult, CosmosMsg, CustomMsg,
-    Empty, Event, QueryResponse, Reply, ReplyOn, Response, SubMsg, SubMsgResponse, SubMsgResult,
-    SystemResult, WasmMsg,
+    attr, wasm_execute, wasm_instantiate, AnyMsg, Attribute, BankMsg, ContractResult, CosmosMsg,
+    CustomMsg, Empty, Event, QueryResponse, Reply, ReplyOn, Response, SubMsg, SubMsgResponse,
+    SubMsgResult, SystemResult, WasmMsg,
 };
 #[cfg(feature = "staking")]
 pub use crate::results::{DistributionMsg, StakingMsg};

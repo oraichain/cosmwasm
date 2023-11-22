@@ -52,9 +52,6 @@ const REQUIRED_EXPORTS: &[&str] = &[
     // IO
     "allocate",
     "deallocate",
-    // we support for all cosmwasm, so we don't check instantiate entrypoint for old version
-    // // Required entry points
-    // "instantiate",
 ];
 
 const INTERFACE_VERSION_PREFIX: &str = "interface_version_";
@@ -200,13 +197,6 @@ fn check_wasm_exports(module: &ParsedWasm) -> VmResult<()> {
                 "Wasm contract doesn't have required export: \"{required_export}\". Exports required by VM: {REQUIRED_EXPORTS:?}."
             )));
         }
-    }
-
-    // must have instantiate or init method
-    if !available_exports.contains("instantiate") && !available_exports.contains("init") {
-        return Err(VmError::static_validation_err(format!(
-            "Wasm contract doesn't have required export: \"instantiate\". Exports required by VM: {REQUIRED_EXPORTS:?}."
-        )));
     }
 
     Ok(())
@@ -479,25 +469,6 @@ mod tests {
         let module = ParsedWasm::parse(&wasm).unwrap();
         check_interface_version(&module).unwrap();
 
-        #[cfg(feature = "allow_interface_version_7")]
-        {
-            // valid legacy version
-            let wasm = wat::parse_str(
-                r#"(module
-                    (type (func))
-                    (func (type 0) nop)
-                    (export "add_one" (func 0))
-                    (export "allocate" (func 0))
-                    (export "interface_version_7" (func 0))
-                    (export "deallocate" (func 0))
-                    (export "instantiate" (func 0))
-                )"#,
-            )
-            .unwrap();
-            let module = ParsedWasm::parse(&wasm).unwrap();
-            check_interface_version(&module).unwrap();
-        }
-
         // missing
         let wasm = wat::parse_str(
             r#"(module
@@ -595,7 +566,6 @@ mod tests {
                 (export "add_one" (func 0))
                 (export "allocate" (func 0))
                 (export "deallocate" (func 0))
-                (export "instantiate" (func 0))
             )"#,
         )
         .unwrap();

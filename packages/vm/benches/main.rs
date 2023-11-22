@@ -6,12 +6,12 @@ use std::thread;
 use std::time::{Duration, SystemTime};
 use tempfile::TempDir;
 
-use cosmwasm_std::{coins, Empty};
+use cosmwasm_std::{coins, Checksum, Empty};
 use cosmwasm_vm::testing::{
     mock_backend, mock_env, mock_info, mock_instance_options, MockApi, MockQuerier, MockStorage,
 };
 use cosmwasm_vm::{
-    call_execute, call_instantiate, capabilities_from_csv, Cache, CacheOptions, Checksum, Instance,
+    call_execute, call_instantiate, capabilities_from_csv, Cache, CacheOptions, Instance,
     InstanceOptions, Size,
 };
 
@@ -20,7 +20,6 @@ const DEFAULT_MEMORY_LIMIT: Size = Size::mebi(64);
 const DEFAULT_GAS_LIMIT: u64 = 1_000_000_000; // ~1ms
 const DEFAULT_INSTANCE_OPTIONS: InstanceOptions = InstanceOptions {
     gas_limit: DEFAULT_GAS_LIMIT,
-    print_debug: false,
 };
 const HIGH_GAS_LIMIT: u64 = 20_000_000_000_000; // ~20s, allows many calls on one instance
 
@@ -50,7 +49,6 @@ fn bench_instance(c: &mut Criterion) {
         let backend = mock_backend(&[]);
         let much_gas: InstanceOptions = InstanceOptions {
             gas_limit: HIGH_GAS_LIMIT,
-            ..DEFAULT_INSTANCE_OPTIONS
         };
         let mut instance =
             Instance::from_code(CONTRACT, backend, much_gas, Some(DEFAULT_MEMORY_LIMIT)).unwrap();
@@ -68,7 +66,6 @@ fn bench_instance(c: &mut Criterion) {
         let backend = mock_backend(&[]);
         let much_gas: InstanceOptions = InstanceOptions {
             gas_limit: HIGH_GAS_LIMIT,
-            ..DEFAULT_INSTANCE_OPTIONS
         };
         let mut instance =
             Instance::from_code(CONTRACT, backend, much_gas, Some(DEFAULT_MEMORY_LIMIT)).unwrap();
@@ -92,7 +89,6 @@ fn bench_instance(c: &mut Criterion) {
         let backend = mock_backend(&[]);
         let much_gas: InstanceOptions = InstanceOptions {
             gas_limit: HIGH_GAS_LIMIT,
-            ..DEFAULT_INSTANCE_OPTIONS
         };
         let mut instance =
             Instance::from_code(CYBERPUNK, backend, much_gas, Some(DEFAULT_MEMORY_LIMIT)).unwrap();

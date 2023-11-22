@@ -16,7 +16,6 @@ const DEFAULT_MEMORY_LIMIT: Size = Size::mebi(64);
 const DEFAULT_GAS_LIMIT: u64 = 400_000 * 150_000;
 const DEFAULT_INSTANCE_OPTIONS: InstanceOptions = InstanceOptions {
     gas_limit: DEFAULT_GAS_LIMIT,
-    print_debug: false,
 };
 // Cache
 const MEMORY_CACHE_SIZE: Size = Size::mebi(200);

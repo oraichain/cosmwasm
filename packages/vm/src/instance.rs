@@ -45,7 +45,6 @@ pub struct GasReport {
 pub struct InstanceOptions {
     /// Gas limit measured in [CosmWasm gas](https://github.com/CosmWasm/cosmwasm/blob/main/docs/GAS.md).
     pub gas_limit: u64,
-    pub print_debug: bool,
 }
 
 pub struct Instance<A: BackendApi, S: Storage, Q: Querier> {
@@ -76,15 +75,7 @@ where
         let engine = make_compiling_engine(memory_limit);
         let module = compile(&engine, code)?;
         let store = Store::new(engine);
-        Instance::from_module(
-            store,
-            &module,
-            backend,
-            options.gas_limit,
-            options.print_debug,
-            None,
-            None,
-        )
+        Instance::from_module(store, &module, backend, options.gas_limit, None, None)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -93,21 +84,13 @@ where
         module: &Module,
         backend: Backend<A, S, Q>,
         gas_limit: u64,
-        print_debug: bool,
         extra_imports: Option<HashMap<&str, Exports>>,
         instantiation_lock: Option<&Mutex<()>>,
     ) -> VmResult<Self> {
-        let fe = FunctionEnv::new(&mut store, {
-            let e = Environment::new(backend.api, gas_limit, get_interface_version(module).ok());
-            if print_debug {
-                e.set_debug_handler(Some(Rc::new(RefCell::new(
-                    |msg: &str, _info: DebugInfo<'_>| {
-                        eprintln!("{msg}");
-                    },
-                ))))
-            }
-            e
-        });
+        let fe = FunctionEnv::new(
+            &mut store,
+            Environment::new(backend.api, gas_limit, get_interface_version(module).ok()),
+        );
 
         let mut import_obj = Imports::new();
         let mut env_imports = Exports::new();
@@ -527,7 +510,6 @@ pub fn instance_from_module<A, S, Q>(
     module: &Module,
     backend: Backend<A, S, Q>,
     gas_limit: u64,
-    print_debug: bool,
     extra_imports: Option<HashMap<&str, Exports>>,
 ) -> VmResult<Instance<A, S, Q>>
 where
@@ -535,15 +517,7 @@ where
     S: Storage + 'static, // 'static is needed here to allow using this in an Environment that is cloned into closures
     Q: Querier + 'static,
 {
-    Instance::from_module(
-        store,
-        module,
-        backend,
-        gas_limit,
-        print_debug,
-        extra_imports,
-        None,
-    )
+    Instance::from_module(store, module, backend, gas_limit, extra_imports, None)
 }
 
 #[cfg(test)]
@@ -702,7 +676,6 @@ mod tests {
             &module,
             backend,
             instance_options.gas_limit,
-            false,
             Some(extra_imports),
             None,
         )

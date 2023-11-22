@@ -802,6 +802,7 @@ mod tests {
     static CONTRACT: &[u8] = include_bytes!("../testdata/hackatom.wasm");
     static CYBERPUNK: &[u8] = include_bytes!("../testdata/cyberpunk.wasm");
     static FLOATY2: &[u8] = include_bytes!("../testdata/floaty_2.0.wasm");
+    static EMPTY: &[u8] = include_bytes!("../testdata/empty.wasm");
 
     #[test]
     fn call_instantiate_works() {
@@ -813,6 +814,28 @@ mod tests {
         call_instantiate::<_, _, _, Empty>(&mut instance, &mock_env(), &info, msg)
             .unwrap()
             .unwrap();
+    }
+
+    #[test]
+    fn call_instantiate_handles_missing_export() {
+        let mut deps = mock_instance(EMPTY, &[]);
+
+        let msg = Empty {};
+        let info = mock_info("creator", &coins(1000, "earth"));
+
+        let serialized_msg = to_vec(&msg).unwrap();
+        let err =
+            call_instantiate::<_, _, _, Empty>(&mut deps, &mock_env(), &info, &serialized_msg)
+                .unwrap_err();
+
+        assert!(matches!(
+            err,
+            VmError::ResolveErr {
+                msg,
+                ..
+            }
+            if msg == "Could not get export: Missing export instantiate"
+        ));
     }
 
     #[test]
@@ -1080,6 +1103,7 @@ mod tests {
             // which creates a reflect account. here we get the callback
             let response = Reply {
                 id,
+                gas_used: 1234567,
                 result: SubMsgResult::Ok(SubMsgResponse {
                     events: vec![event],
                     data: None,

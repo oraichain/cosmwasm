@@ -10,9 +10,11 @@ and this project adheres to
 
 - cosmwasm-std: Add `SubMsg:reply_never` constructor ([#1929])
 - cosmwasm-std: Add optional memo field to `IbcMsg::Transfer`. ([#1878])
+- cosmwasm-std: Add `Reply::gas_used`. ([#1954])
 
 [#1878]: https://github.com/CosmWasm/cosmwasm/pull/1878
 [#1929]: https://github.com/CosmWasm/cosmwasm/pull/1929
+[#1954]: https://github.com/CosmWasm/cosmwasm/pull/1954
 
 ### Changed
 
@@ -46,6 +48,13 @@ and this project adheres to
   `Addr` type for `ContractInfoResponse::{creator, admin}`. ([#1883])
 - cosmwasm-std: Change `DistributionQuerier::new` to take `IntoIterator` instead
   of `HashMap`. ([#1941])
+- cosmwasm-vm: Make `instantiate` entrypoint optional. ([#1933])
+- cosmwasm-std: Rename `CosmosMsg::Stargate` to `CosmosMsg::Any` and use a
+  nested msg struct like in other messages. ([#1926])
+- cosmwasm-vm: Add `AnalysisReport::entrypoints` and make
+  `AnalysisReport::required_capabilities` a `BTreeSet`. ([#1949])
+- cosmwasm-std: Add `Checksum` type and change type of
+  `CodeInfoResponse::checksum` to that. ([#1944])
 
 [#1874]: https://github.com/CosmWasm/cosmwasm/pull/1874
 [#1876]: https://github.com/CosmWasm/cosmwasm/pull/1876
@@ -54,9 +63,13 @@ and this project adheres to
 [#1884]: https://github.com/CosmWasm/cosmwasm/pull/1884
 [#1898]: https://github.com/CosmWasm/cosmwasm/pull/1898
 [#1902]: https://github.com/CosmWasm/cosmwasm/pull/1902
+[#1926]: https://github.com/CosmWasm/cosmwasm/pull/1926
+[#1933]: https://github.com/CosmWasm/cosmwasm/pull/1933
 [#1939]: https://github.com/CosmWasm/cosmwasm/pull/1939
 [#1940]: https://github.com/CosmWasm/cosmwasm/pull/1940
 [#1941]: https://github.com/CosmWasm/cosmwasm/pull/1941
+[#1944]: https://github.com/CosmWasm/cosmwasm/pull/1944
+[#1949]: https://github.com/CosmWasm/cosmwasm/pull/1949
 
 ### Removed
 
@@ -69,6 +82,12 @@ and this project adheres to
 - cosmwasm-storage: Removed, use [cw-storage-plus] instead. ([#1936])
 - cosmwasm-std: Remove `IbcReceiveResponse`'s `Default` implementation. Use
   `IbcReceiveResponse::new` instead. ([#1942])
+- cosmwasm-vm: Remove `InstanceOptions::print_debug` flag. Set your own handler
+  using `Instance::set_debug_handler`. ([#1953])
+- cosmwasm-vm: Remove `allow_interface_version_7` feature and all related
+  functionality. ([#1952])
+- cosmwasm-vm: Remove `Checksum`. Use `cosmwasm_std::Checksum` instead.
+  ([#1944])
 
 [cw-storage-plus]: https://github.com/CosmWasm/cw-storage-plus
 [#1875]: https://github.com/CosmWasm/cosmwasm/pull/1875
@@ -76,6 +95,8 @@ and this project adheres to
 [#1896]: https://github.com/CosmWasm/cosmwasm/pull/1896
 [#1936]: https://github.com/CosmWasm/cosmwasm/pull/1936
 [#1942]: https://github.com/CosmWasm/cosmwasm/pull/1942
+[#1952]: https://github.com/CosmWasm/cosmwasm/pull/1952
+[#1953]: https://github.com/CosmWasm/cosmwasm/pull/1953
 
 ## [1.5.0] - 2023-10-31
 
@@ -155,8 +176,14 @@ and this project adheres to
 - cosmwasm-std: Add
   `DistributionQuery::{DelegationRewards, DelegationTotalRewards, DelegatorValidators}`.
   This requires the `cosmwasm_1_4` feature to be enabled. ([#1788])
+- cosmwasm-std: Export module `cosmwasm_std::storage_keys` with
+  `namespace_with_key`, `to_length_prefixed` and `to_length_prefixed_nested` to
+  make it easier to use the strandard storage key layout documented in
+  [STORAGE_KEYS.md](https://github.com/CosmWasm/cosmwasm/blob/v1.5.0/docs/STORAGE_KEYS.md)
+  in other libraries such as cw-storage-plus or indexers. ([#1676])
 
 [#1512]: https://github.com/CosmWasm/cosmwasm/issues/1512
+[#1676]: https://github.com/CosmWasm/cosmwasm/pull/1676
 [#1799]: https://github.com/CosmWasm/cosmwasm/pull/1799
 [#1806]: https://github.com/CosmWasm/cosmwasm/pull/1806
 [#1832]: https://github.com/CosmWasm/cosmwasm/pull/1832
