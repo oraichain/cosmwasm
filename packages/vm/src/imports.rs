@@ -363,9 +363,7 @@ pub fn do_poseidon_hash<A: BackendApi + 'static, S: Storage + 'static, Q: Querie
             write_region(&data.memory(&mut store), hash_ptr, &hash)?;
             Ok(0)
         }
-        Err(_) => Err(VmError::GenericErr {
-            msg: "poseidon hash error".to_string(),
-        }),
+        Err(_) => Err(VmError::generic_err("poseidon hash error".to_string())),
     }
 }
 
@@ -1207,12 +1205,12 @@ mod tests {
 
     #[test]
     fn do_addr_validate_works() {
-        let api = MockApi::default();
+        let api = MockApi::default().with_prefix("osmo");
         let (fe, mut store, _instance) = make_instance(api);
         let mut fe_mut = fe.into_mut(&mut store);
 
-        let source_ptr1 = write_data(&mut fe_mut, b"foo");
-        let source_ptr2 = write_data(&mut fe_mut, b"eth1n48g2mjh9ezz7zjtya37wtgg5r5emr0drkwlgw");
+        let source_ptr1 = write_data(&mut fe_mut, b"osmo186kh7c0k0gh4ww0wh4jqc4yhzu7n7dhswe845d");
+        let source_ptr2 = write_data(&mut fe_mut, b"osmo18enxpg25jc4zkwe7w00yneva0vztwuex3rtv8t");
 
         let res = do_addr_validate(fe_mut.as_mut(), source_ptr1).unwrap();
         assert_eq!(res, 0);
@@ -1226,10 +1224,12 @@ mod tests {
         let (fe, mut store, _instance) = make_instance(api);
         let mut fe_mut = fe.into_mut(&mut store);
 
-        let source_ptr1 = write_data(&mut fe_mut, b"fo\x80o"); // invalid UTF-8 (fo�o)
+        let source_ptr1 = write_data(&mut fe_mut, b"cosmwasm\x80o"); // invalid UTF-8 (cosmwasm�o)
         let source_ptr2 = write_data(&mut fe_mut, b""); // empty
-        let source_ptr3 = write_data(&mut fe_mut, b"addressexceedingaddressspacesuperlongreallylongiamensuringthatitislongerthaneverything"); // too long
-        let source_ptr4 = write_data(&mut fe_mut, b"fooBar"); // Not normalized. The definition of normalized is chain-dependent but the MockApi requires lower case.
+        let source_ptr3 = write_data(
+            &mut fe_mut,
+            b"cosmwasm1h34LMPYwh4upnjdg90cjf4j70aee6z8qqfspugamjp42e4q28kqs8s7vcp",
+        ); // Not normalized. The definition of normalized is chain-dependent but the MockApi disallows mixed case.
 
         let res = do_addr_validate(fe_mut.as_mut(), source_ptr1).unwrap();
         assert_ne!(res, 0);
@@ -1244,15 +1244,7 @@ mod tests {
         let res = do_addr_validate(fe_mut.as_mut(), source_ptr3).unwrap();
         assert_ne!(res, 0);
         let err = String::from_utf8(force_read(&mut fe_mut, res)).unwrap();
-        assert_eq!(
-            err,
-            "Invalid input: human address too long for this mock implementation (must be <= 64)."
-        );
-
-        let res = do_addr_validate(fe_mut.as_mut(), source_ptr4).unwrap();
-        assert_ne!(res, 0);
-        let err = String::from_utf8(force_read(&mut fe_mut, res)).unwrap();
-        assert_eq!(err, "Address is not normalized");
+        assert_eq!(err, "Error decoding bech32");
     }
 
     #[test]
@@ -1301,23 +1293,26 @@ mod tests {
         }
     }
 
+    const CANONICAL_ADDRESS_BUFFER_LENGTH: u32 = 64;
+
     #[test]
     fn do_addr_canonicalize_works() {
         let api = MockApi::default();
         let (fe, mut store, instance) = make_instance(api);
         let mut fe_mut = fe.into_mut(&mut store);
-        let api = MockApi::default();
 
-        let source_ptr = write_data(&mut fe_mut, b"foo");
-        let dest_ptr = create_empty(&instance, &mut fe_mut, api.canonical_length() as u32);
+        let source_ptr = write_data(
+            &mut fe_mut,
+            b"cosmwasm1h34lmpywh4upnjdg90cjf4j70aee6z8qqfspugamjp42e4q28kqs8s7vcp",
+        );
+        let dest_ptr = create_empty(&instance, &mut fe_mut, CANONICAL_ADDRESS_BUFFER_LENGTH);
 
         leave_default_data(&mut fe_mut);
 
-        let api = MockApi::default();
         let res = do_addr_canonicalize(fe_mut.as_mut(), source_ptr, dest_ptr).unwrap();
         assert_eq!(res, 0);
         let data = force_read(&mut fe_mut, dest_ptr);
-        assert_eq!(data.len(), api.canonical_length());
+        assert_eq!(data.len(), 32);
     }
 
     #[test]
@@ -1326,9 +1321,8 @@ mod tests {
         let (fe, mut store, instance) = make_instance(api);
         let mut fe_mut = fe.into_mut(&mut store);
 
-        let source_ptr1 = write_data(&mut fe_mut, b"fo\x80o"); // invalid UTF-8 (fo�o)
+        let source_ptr1 = write_data(&mut fe_mut, b"cosmwasm\x80o"); // invalid UTF-8 (cosmwasm�o)
         let source_ptr2 = write_data(&mut fe_mut, b""); // empty
-        let source_ptr3 = write_data(&mut fe_mut, b"addressexceedingaddressspacesuperlongreallylongiamensuringthatitislongerthaneverything"); // too long
         let dest_ptr = create_empty(&instance, &mut fe_mut, 70);
 
         leave_default_data(&mut fe_mut);
@@ -1342,14 +1336,6 @@ mod tests {
         assert_ne!(res, 0);
         let err = String::from_utf8(force_read(&mut fe_mut, res)).unwrap();
         assert_eq!(err, "Input is empty");
-
-        let res = do_addr_canonicalize(fe_mut.as_mut(), source_ptr3, dest_ptr).unwrap();
-        assert_ne!(res, 0);
-        let err = String::from_utf8(force_read(&mut fe_mut, res)).unwrap();
-        assert_eq!(
-            err,
-            "Invalid input: human address too long for this mock implementation (must be <= 64)."
-        );
     }
 
     #[test]
@@ -1402,11 +1388,11 @@ mod tests {
 
     #[test]
     fn do_addr_canonicalize_fails_for_small_destination_region() {
-        let api = MockApi::default();
+        let api = MockApi::default().with_prefix("osmo");
         let (fe, mut store, instance) = make_instance(api);
         let mut fe_mut = fe.into_mut(&mut store);
 
-        let source_ptr = write_data(&mut fe_mut, b"foo");
+        let source_ptr = write_data(&mut fe_mut, b"osmo18enxpg25jc4zkwe7w00yneva0vztwuex3rtv8t");
         let dest_ptr = create_empty(&instance, &mut fe_mut, 7);
 
         leave_default_data(&mut fe_mut);
@@ -1418,7 +1404,7 @@ mod tests {
                 ..
             } => {
                 assert_eq!(size, 7);
-                assert_eq!(required, api.canonical_length());
+                assert_eq!(required, 20);
             }
             err => panic!("Incorrect error returned: {err:?}"),
         }
@@ -1429,17 +1415,16 @@ mod tests {
         let api = MockApi::default();
         let (fe, mut store, instance) = make_instance(api);
         let mut fe_mut = fe.into_mut(&mut store);
-        let api = MockApi::default();
 
-        let source_data = vec![0x22; api.canonical_length()];
+        let source_data = vec![0x22; CANONICAL_ADDRESS_BUFFER_LENGTH as usize];
         let source_ptr = write_data(&mut fe_mut, &source_data);
-        let dest_ptr = create_empty(&instance, &mut fe_mut, 70);
+        let dest_ptr = create_empty(&instance, &mut fe_mut, 118);
 
         leave_default_data(&mut fe_mut);
 
         let error_ptr = do_addr_humanize(fe_mut.as_mut(), source_ptr, dest_ptr).unwrap();
         assert_eq!(error_ptr, 0);
-        assert_eq!(force_read(&mut fe_mut, dest_ptr), source_data);
+        assert_eq!(force_read(&mut fe_mut, dest_ptr), b"cosmwasm1yg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsegeksq");
     }
 
     #[test]
@@ -1448,7 +1433,7 @@ mod tests {
         let (fe, mut store, instance) = make_instance(api);
         let mut fe_mut = fe.into_mut(&mut store);
 
-        let source_ptr = write_data(&mut fe_mut, b"foo"); // too short
+        let source_ptr = write_data(&mut fe_mut, b""); // too short
         let dest_ptr = create_empty(&instance, &mut fe_mut, 70);
 
         leave_default_data(&mut fe_mut);
@@ -1456,7 +1441,7 @@ mod tests {
         let res = do_addr_humanize(fe_mut.as_mut(), source_ptr, dest_ptr).unwrap();
         assert_ne!(res, 0);
         let err = String::from_utf8(force_read(&mut fe_mut, res)).unwrap();
-        assert_eq!(err, "Invalid input: canonical address length not correct");
+        assert_eq!(err, "Invalid canonical address length");
     }
 
     #[test]
@@ -1512,9 +1497,8 @@ mod tests {
         let api = MockApi::default();
         let (fe, mut store, instance) = make_instance(api);
         let mut fe_mut = fe.into_mut(&mut store);
-        let api = MockApi::default();
 
-        let source_data = vec![0x22; api.canonical_length()];
+        let source_data = vec![0x22; CANONICAL_ADDRESS_BUFFER_LENGTH as usize];
         let source_ptr = write_data(&mut fe_mut, &source_data);
         let dest_ptr = create_empty(&instance, &mut fe_mut, 2);
 
@@ -1527,7 +1511,7 @@ mod tests {
                 ..
             } => {
                 assert_eq!(size, 2);
-                assert_eq!(required, api.canonical_length());
+                assert_eq!(required, 118);
             }
             err => panic!("Incorrect error returned: {err:?}"),
         }

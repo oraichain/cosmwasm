@@ -193,8 +193,18 @@ fn do_user_errors_in_api_calls(api: &dyn Api) -> Result<Response, HackError> {
         }
     }
 
-    let too_long =
-        "bn9hhssomeltvhzgvuqkwjkpwxojfuigltwedayzxljucefikuieillowaticksoistqoynmgcnj219aewfwefwwegwg";
+    let invalid = "bn9hhssomeltvhzgvuqkwjkpwxoj";
+    match api.addr_canonicalize(invalid).unwrap_err() {
+        StdError::GenericErr { .. } => {}
+        err => {
+            return Err(StdError::generic_err(format!(
+                "Unexpected error in do_user_errors_in_api_calls: {err:?}"
+            ))
+            .into())
+        }
+    }
+
+    let too_long = "cosmwasm1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqehqqkz";
     match api.addr_canonicalize(too_long).unwrap_err() {
         StdError::GenericErr { .. } => {}
         err => {
@@ -206,31 +216,8 @@ fn do_user_errors_in_api_calls(api: &dyn Api) -> Result<Response, HackError> {
     }
 
     // Humanize
-
     let empty: CanonicalAddr = vec![].into();
     match api.addr_humanize(&empty).unwrap_err() {
-        StdError::GenericErr { .. } => {}
-        err => {
-            return Err(StdError::generic_err(format!(
-                "Unexpected error in do_user_errors_in_api_calls: {err:?}"
-            ))
-            .into())
-        }
-    }
-
-    let too_short: CanonicalAddr = vec![0xAA, 0xBB, 0xCC].into();
-    match api.addr_humanize(&too_short).unwrap_err() {
-        StdError::GenericErr { .. } => {}
-        err => {
-            return Err(StdError::generic_err(format!(
-                "Unexpected error in do_user_errors_in_api_calls: {err:?}"
-            ))
-            .into())
-        }
-    }
-
-    let wrong_length: CanonicalAddr = vec![0xA6; 17].into();
-    match api.addr_humanize(&wrong_length).unwrap_err() {
         StdError::GenericErr { .. } => {}
         err => {
             return Err(StdError::generic_err(format!(
@@ -314,9 +301,9 @@ mod tests {
     fn proper_initialization() {
         let mut deps = mock_dependencies();
 
-        let verifier = String::from("verifies");
-        let beneficiary = String::from("benefits");
-        let creator = String::from("creator");
+        let verifier: String = deps.api.addr_make("verifies").into();
+        let beneficiary: String = deps.api.addr_make("benefits").into();
+        let creator: String = deps.api.addr_make("creator").into();
         let expected_state = State {
             verifier: deps.api.addr_validate(&verifier).unwrap(),
             beneficiary: deps.api.addr_validate(&beneficiary).unwrap(),
@@ -342,9 +329,9 @@ mod tests {
     fn instantiate_and_query() {
         let mut deps = mock_dependencies();
 
-        let verifier = String::from("verifies");
-        let beneficiary = String::from("benefits");
-        let creator = String::from("creator");
+        let verifier: String = deps.api.addr_make("verifies").into();
+        let beneficiary: String = deps.api.addr_make("benefits").into();
+        let creator: String = deps.api.addr_make("creator").into();
         let msg = InstantiateMsg {
             verifier: verifier.clone(),
             beneficiary,
@@ -362,11 +349,11 @@ mod tests {
     fn migrate_verifier() {
         let mut deps = mock_dependencies();
 
-        let verifier = String::from("verifies");
-        let beneficiary = String::from("benefits");
-        let creator = String::from("creator");
+        let verifier: String = deps.api.addr_make("verifies").into();
+        let beneficiary: String = deps.api.addr_make("benefits").into();
+        let creator: String = deps.api.addr_make("creator").into();
         let msg = InstantiateMsg {
-            verifier,
+            verifier: verifier.clone(),
             beneficiary,
         };
         let info = mock_info(&creator, &[]);
@@ -375,10 +362,13 @@ mod tests {
 
         // check it is 'verifies'
         let query_response = query(deps.as_ref(), mock_env(), QueryMsg::Verifier {}).unwrap();
-        assert_eq!(query_response.as_slice(), b"{\"verifier\":\"verifies\"}");
+        assert_eq!(
+            query_response.as_slice(),
+            format!(r#"{{"verifier":"{verifier}"}}"#).as_bytes()
+        );
 
         // change the verifier via migrate
-        let new_verifier = String::from("someone else");
+        let new_verifier: String = deps.api.addr_make("someone else").into();
         let msg = MigrateMsg {
             verifier: new_verifier.clone(),
         };
@@ -394,9 +384,9 @@ mod tests {
     fn sudo_can_steal_tokens() {
         let mut deps = mock_dependencies();
 
-        let verifier = String::from("verifies");
-        let beneficiary = String::from("benefits");
-        let creator = String::from("creator");
+        let verifier: String = deps.api.addr_make("verifies").into();
+        let beneficiary: String = deps.api.addr_make("benefits").into();
+        let creator: String = deps.api.addr_make("creator").into();
         let msg = InstantiateMsg {
             verifier,
             beneficiary,
@@ -438,9 +428,9 @@ mod tests {
         let mut deps = mock_dependencies();
 
         // initialize the store
-        let creator = String::from("creator");
-        let verifier = String::from("verifies");
-        let beneficiary = String::from("benefits");
+        let creator: String = deps.api.addr_make("creator").into();
+        let verifier: String = deps.api.addr_make("verifies").into();
+        let beneficiary: String = deps.api.addr_make("benefits").into();
 
         let instantiate_msg = InstantiateMsg {
             verifier: verifier.clone(),
@@ -468,13 +458,13 @@ mod tests {
         assert_eq!(
             msg,
             &SubMsg::new(BankMsg::Send {
-                to_address: beneficiary,
+                to_address: beneficiary.clone(),
                 amount: coins(1000, "earth"),
             }),
         );
         assert_eq!(
             execute_res.attributes,
-            vec![("action", "release"), ("destination", "benefits")],
+            vec![("action", "release"), ("destination", &beneficiary)],
         );
         assert_eq!(execute_res.data, Some(vec![0xF0, 0x0B, 0xAA].into()));
     }
@@ -484,9 +474,9 @@ mod tests {
         let mut deps = mock_dependencies();
 
         // initialize the store
-        let creator = String::from("creator");
-        let verifier = String::from("verifies");
-        let beneficiary = String::from("benefits");
+        let creator: String = deps.api.addr_make("creator").into();
+        let verifier: String = deps.api.addr_make("verifies").into();
+        let beneficiary: String = deps.api.addr_make("benefits").into();
 
         let instantiate_msg = InstantiateMsg {
             verifier: verifier.clone(),
@@ -529,9 +519,9 @@ mod tests {
         let mut deps = mock_dependencies();
 
         // initialize the store
-        let verifier = String::from("verifies");
-        let beneficiary = String::from("benefits");
-        let creator = String::from("creator");
+        let verifier: String = deps.api.addr_make("verifies").into();
+        let beneficiary: String = deps.api.addr_make("benefits").into();
+        let creator: String = deps.api.addr_make("creator").into();
 
         let instantiate_msg = InstantiateMsg {
             verifier,
@@ -556,8 +546,8 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let instantiate_msg = InstantiateMsg {
-            verifier: String::from("verifies"),
-            beneficiary: String::from("benefits"),
+            verifier: deps.api.addr_make("verifies").into(),
+            beneficiary: deps.api.addr_make("benefits").into(),
         };
         let init_info = mock_info("creator", &coins(1000, "earth"));
         let init_res = instantiate(deps.as_mut(), mock_env(), init_info, instantiate_msg).unwrap();
@@ -582,7 +572,7 @@ mod tests {
         let contract = Addr::unchecked("my-contract");
         let bin_contract: &[u8] = b"my-contract";
 
-        // return the unhashed value here
+        // return the un-hashed value here
         let no_work_query = query_recurse(deps.as_ref(), 0, 0, contract.clone()).unwrap();
         assert_eq!(no_work_query.hashed, Binary::from(bin_contract));
 

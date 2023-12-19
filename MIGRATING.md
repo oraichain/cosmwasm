@@ -21,7 +21,9 @@ major releases of `cosmwasm`. Note that you can also view the
 
   If you were using cosmwasm-std's `ibc3` feature, you can remove it, as it is
   the default now. Depending on your usage, you might have to enable the
-  `stargate` feature instead, since it was previously implied by `ibc3`.
+  `stargate` feature instead, since it was previously implied by `ibc3`. Also
+  remove any uses of the `backtraces` feature. You can use a `RUST_BACKTRACE=1`
+  env variable for this now.
 
 - `ContractInfoResponse::new` now takes all fields of the response as
   parameters:
@@ -123,6 +125,47 @@ major releases of `cosmwasm`. Note that you can also view the
   ```diff
   -CosmosMsg::Stargate { type_url, value }
   +CosmosMsg::Any(AnyMsg { type_url, value })
+  ```
+
+- Replace all direct construction of `StdError` with use of the corresponding
+  constructor:
+
+  ```diff
+  -StdError::GenericErr { msg }
+  +StdError::generic_err(msg)
+  ```
+
+- Replace addresses in unit tests with valid bech32 addresses. This has to be
+  done for all addresses that are validated or canonicalized during the test or
+  within the contract. The easiest way to do this is by using
+  `MockApi::addr_make`. It generates a bech32 address from any string:
+
+  ```diff
+  -let msg = InstantiateMsg {
+  -    verifier: "verifier".to_string(),
+  -    beneficiary: "beneficiary".to_string(),
+  -};
+  +let msg = InstantiateMsg {
+  +    verifier: deps.api.addr_make("verifier").to_string(),
+  +    beneficiary: deps.api.addr_make("beneficiary").to_string(),
+  +};
+  ```
+
+- Replace addresses in integration tests using `cosmwasm-vm` with valid bech32
+  addresses. This has to be done for all addresses that are validated or
+  canonicalized during the test or within the contract. The easiest way to do
+  this is by using `MockApi::addr_make`. It generates a bech32 address from any
+  string:
+
+  ```diff
+  -let msg = InstantiateMsg {
+  -    verifier: "verifier".to_string(),
+  -    beneficiary: "beneficiary".to_string(),
+  -};
+  +let msg = InstantiateMsg {
+  +    verifier: instance.api().addr_make("verifier").to_string(),
+  +    beneficiary: instance.api().addr_make("beneficiary").to_string(),
+  +};
   ```
 
 ## 1.4.x -> 1.5.0

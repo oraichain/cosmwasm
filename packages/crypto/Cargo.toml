@@ -9,10 +9,6 @@ license = "Apache-2.0"
 
 [features]
 default = []
-# backtraces provides much better context at runtime errors (in non-wasm code)
-# at the cost of a bit of code size and performance.
-# This feature requires Rust nightly because it depends on the unstable backtrace feature.
-backtraces = []
 
 [lib]
 # See https://bheisler.github.io/criterion.rs/book/faq.html#cargo-bench-gives-unrecognized-option-errors-for-valid-command-line-options
@@ -43,7 +39,7 @@ ark-groth16 = { version = "^0.3.0", default-features = false }
 ark-serialize = { version = "^0.3.0", default-features = false }
 
 [dev-dependencies]
-criterion = "0.4"
+criterion = "0.5.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive", "alloc"] }
 serde_json = "1.0.40"
 sha2 = "0.10"
