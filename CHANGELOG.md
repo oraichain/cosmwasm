@@ -13,11 +13,14 @@ and this project adheres to
 - cosmwasm-std: Add `Reply::gas_used`. ([#1954])
 - cosmwasm-std: Add `SubMsgResponse::msg_responses` and deprecate
   `SubMsgResponse::data`. ([#1903])
+- cosmwasm-std: Add `cosmwasm_2_0` feature to enable 2.0 specific functionality.
+  ([#1974])
 
 [#1878]: https://github.com/CosmWasm/cosmwasm/pull/1878
 [#1903]: https://github.com/CosmWasm/cosmwasm/pull/1903
 [#1929]: https://github.com/CosmWasm/cosmwasm/pull/1929
 [#1954]: https://github.com/CosmWasm/cosmwasm/pull/1954
+[#1974]: https://github.com/CosmWasm/cosmwasm/pull/1974
 
 ### Changed
 
@@ -68,6 +71,7 @@ and this project adheres to
 - cosmwasm-vm: Replace `MockApi` with bech32 implementation. ([#1914])
 - cosmwasm-std: Make `IbcReceiveResponse::acknowledgement` optional and add
   `IbcReceiveResponse::without_ack` constructor. ([#1892])
+- cosmwasm-std: Add `std` feature and make it a default feature. ([#1971])
 
 [#1874]: https://github.com/CosmWasm/cosmwasm/pull/1874
 [#1876]: https://github.com/CosmWasm/cosmwasm/pull/1876
@@ -86,6 +90,7 @@ and this project adheres to
 [#1944]: https://github.com/CosmWasm/cosmwasm/pull/1944
 [#1949]: https://github.com/CosmWasm/cosmwasm/pull/1949
 [#1967]: https://github.com/CosmWasm/cosmwasm/pull/1967
+[#1971]: https://github.com/CosmWasm/cosmwasm/pull/1971
 
 ### Removed
 

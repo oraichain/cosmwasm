@@ -21,9 +21,30 @@ major releases of `cosmwasm`. Note that you can also view the
 
   If you were using cosmwasm-std's `ibc3` feature, you can remove it, as it is
   the default now. Depending on your usage, you might have to enable the
-  `stargate` feature instead, since it was previously implied by `ibc3`. Also
-  remove any uses of the `backtraces` feature. You can use a `RUST_BACKTRACE=1`
-  env variable for this now.
+  `stargate` feature instead, since it was previously implied by `ibc3`.
+
+  Also remove any uses of the `backtraces` feature. You can use a
+  `RUST_BACKTRACE=1` env variable for this now.
+
+  If you were using `cosmwasm-std` with `default-features = false`, you probably
+  want to enable the `std` feature now, as we might move certain existing
+  functionality to that feature in the future to support no_std environments:
+
+  ```diff
+  -cosmwasm-std = { version = "2.0.0", default-features = false, features = [...] }
+  +cosmwasm-std = { version = "2.0.0", default-features = false, features = ["std", ...] }
+  ```
+
+- If you want to use a feature that is only available on CosmWasm 2.0+ chains,
+  use this feature:
+
+  ```diff
+  -cosmwasm-std = { version = "1.4.0", features = ["stargate"] }
+  +cosmwasm-std = { version = "1.4.0", features = ["stargate", "cosmwasm_2_0"] }
+  ```
+
+  Please note that `cosmwasm_2_0` implies `cosmwasm_1_4`, `cosmwasm_1_3` and so
+  on, so there is no need to set multiple.
 
 - `ContractInfoResponse::new` now takes all fields of the response as
   parameters:

@@ -1,5 +1,12 @@
 extern crate alloc;
 
+#[cfg(not(feature = "std"))]
+core::compile_error!(
+    r#"Please enable `cosmwasm-std`'s `std` feature, as we might move existing functionality to that feature in the future.
+Builds without the std feature are currently not expected to work. If you need no_std support see #1484.
+"#
+);
+
 // Exposed on all platforms
 
 mod addresses;
@@ -31,6 +38,9 @@ mod storage;
 mod timestamp;
 mod traits;
 mod types;
+
+/// This module is to simplify no_std imports
+pub(crate) mod prelude;
 
 /// This modules is very advanced and will not be used directly by the vast majority of users.
 /// We want to offer it to ensure a stable storage key composition system but don't encourage

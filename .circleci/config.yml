@@ -344,27 +344,27 @@ jobs:
       - run:
           name: Build library for native target (no features)
           working_directory: ~/project/packages/std
-          command: cargo build --locked --no-default-features
+          command: cargo build --locked --no-default-features --features std
       - run:
           name: Build library for wasm target (no features)
           working_directory: ~/project/packages/std
-          command: cargo wasm --locked --no-default-features
+          command: cargo wasm --locked --no-default-features --features std
       - run:
           name: Run unit tests (no features)
           working_directory: ~/project/packages/std
-          command: cargo test --locked --no-default-features
+          command: cargo test --locked --no-default-features --features std
       - run:
           name: Build library for native target (all features)
           working_directory: ~/project/packages/std
-          command: cargo build --locked --features abort,iterator,staking,stargate,cosmwasm_1_4
+          command: cargo build --locked --features abort,iterator,staking,stargate,cosmwasm_2_0
       - run:
           name: Build library for wasm target (all features)
           working_directory: ~/project/packages/std
-          command: cargo wasm --locked --features abort,iterator,staking,stargate,cosmwasm_1_4
+          command: cargo wasm --locked --features abort,iterator,staking,stargate,cosmwasm_2_0
       - run:
           name: Run unit tests (all features)
           working_directory: ~/project/packages/std
-          command: cargo test --locked --features abort,iterator,staking,stargate,cosmwasm_1_4
+          command: cargo test --locked --features abort,iterator,staking,stargate,cosmwasm_2_0
       - save_cache:
           paths:
             - /usr/local/cargo/registry
@@ -903,7 +903,7 @@ jobs:
       - run:
           name: Clippy linting on std (all feature flags)
           working_directory: ~/project/packages/std
-          command: cargo clippy --all-targets --features abort,iterator,staking,stargate,cosmwasm_1_4 -- -D warnings
+          command: cargo clippy --all-targets --features abort,iterator,staking,stargate,cosmwasm_2_0 -- -D warnings
       - run:
           name: Clippy linting on vm (no feature flags)
           working_directory: ~/project/packages/vm

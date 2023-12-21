@@ -9,11 +9,16 @@ license = "Apache-2.0"
 readme = "README.md"
 
 [package.metadata.docs.rs]
-features = ["abort", "stargate", "staking", "cosmwasm_1_4"]
+features = ["abort", "stargate", "staking", "cosmwasm_2_0"]
 
 [features]
-default = ["iterator", "abort"]
+default = ["iterator", "abort", "std"]
 abort = []
+# This feature can be used in the future to provide support for no_std environments,
+# but disabling it will not provide any benefit at the moment. Even with this feature disabled,
+# we currently require an std environment.
+# You probably want to keep this enabled for now to avoid possible breaking changes later.
+std = ["serde/std", "serde-json-wasm/std"]
 # iterator allows us to iterate over all DB items in a given range
 # optional as some merkle stores (like tries) don't support this
 # given Ethereum 1.0, 2.0, Substrate, and other major projects use Tries
@@ -41,17 +46,20 @@ cosmwasm_1_3 = ["cosmwasm_1_2"]
 # available for the contract to call.
 # It requires the host blockchain to run CosmWasm `1.4.0` or higher.
 cosmwasm_1_4 = ["cosmwasm_1_3"]
+# This enables functionality that is only available on 2.0 chains.
+# It adds `CosmosMsg::Any`, replacing `CosmosMsg::Stargate`.
+cosmwasm_2_0 = ["cosmwasm_1_4"]
 
 [dependencies]
 base64 = "0.21.0"
 cosmwasm-derive = { path = "../derive", version = "1.5.0" }
-derivative = "2"
+derivative = { version = "2", features = ["use_core"] }
 forward_ref = "1"
 hex = "0.4"
 schemars = "0.8.3"
 sha2 = "0.10.3"
 serde = { version = "1.0.103", default-features = false, features = ["derive", "alloc"] }
-serde-json-wasm = { version = "1.0.0" }
+serde-json-wasm = { version = "1.0.0", default-features = false }
 thiserror = "1.0.26"
 bnum = "0.8.0"
 static_assertions = "1.1.0"
