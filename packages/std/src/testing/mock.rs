@@ -500,14 +500,14 @@ pub type MockQuerierCustomHandlerResult = SystemResult<ContractResult<Binary>>;
 /// MockQuerier holds an immutable table of bank balances
 /// and configurable handlers for Wasm queries and custom queries.
 pub struct MockQuerier<C: DeserializeOwned = Empty> {
-    bank: BankQuerier,
+    pub bank: BankQuerier,
     #[cfg(feature = "staking")]
-    staking: StakingQuerier,
+    pub staking: StakingQuerier,
     #[cfg(feature = "cosmwasm_1_3")]
-    distribution: DistributionQuerier,
+    pub distribution: DistributionQuerier,
     wasm: WasmQuerier,
     #[cfg(feature = "stargate")]
-    ibc: IbcQuerier,
+    pub ibc: IbcQuerier,
     /// A handler to handle custom queries. This is set to a dummy handler that
     /// always errors by default. Update it via `with_custom_handler`.
     ///
@@ -533,61 +533,6 @@ impl<C: DeserializeOwned> MockQuerier<C> {
                 })
             }),
         }
-    }
-
-    // set a new balance for the given address and return the old balance
-    pub fn update_balance(
-        &mut self,
-        addr: impl Into<String>,
-        balance: Vec<Coin>,
-    ) -> Option<Vec<Coin>> {
-        self.bank.update_balance(addr, balance)
-    }
-
-    pub fn set_denom_metadata(&mut self, denom_metadata: &[DenomMetadata]) {
-        self.bank.set_denom_metadata(denom_metadata);
-    }
-
-    #[cfg(feature = "cosmwasm_1_3")]
-    pub fn set_withdraw_address(
-        &mut self,
-        delegator_address: impl Into<String>,
-        withdraw_address: impl Into<String>,
-    ) {
-        self.distribution
-            .set_withdraw_address(delegator_address, withdraw_address);
-    }
-
-    /// Sets multiple withdraw addresses.
-    ///
-    /// This allows passing multiple tuples of `(delegator_address, withdraw_address)`.
-    /// It does not overwrite existing entries.
-    #[cfg(feature = "cosmwasm_1_3")]
-    pub fn set_withdraw_addresses(
-        &mut self,
-        withdraw_addresses: impl IntoIterator<Item = (impl Into<String>, impl Into<String>)>,
-    ) {
-        self.distribution.set_withdraw_addresses(withdraw_addresses);
-    }
-
-    #[cfg(feature = "cosmwasm_1_3")]
-    pub fn clear_withdraw_addresses(&mut self) {
-        self.distribution.clear_withdraw_addresses();
-    }
-
-    #[cfg(feature = "staking")]
-    pub fn update_staking(
-        &mut self,
-        denom: &str,
-        validators: &[crate::query::Validator],
-        delegations: &[crate::query::FullDelegation],
-    ) {
-        self.staking = StakingQuerier::new(denom, validators, delegations);
-    }
-
-    #[cfg(feature = "stargate")]
-    pub fn update_ibc(&mut self, port_id: &str, channels: &[IbcChannel]) {
-        self.ibc = IbcQuerier::new(port_id, channels);
     }
 
     pub fn update_wasm<WH: 'static>(&mut self, handler: WH)
@@ -640,8 +585,13 @@ impl<C: CustomQuery + DeserializeOwned> MockQuerier<C> {
             }
             QueryRequest::Wasm(msg) => self.wasm.query(msg),
             #[cfg(feature = "stargate")]
+            #[allow(deprecated)]
             QueryRequest::Stargate { .. } => SystemResult::Err(SystemError::UnsupportedRequest {
                 kind: "Stargate".to_string(),
+            }),
+            #[cfg(feature = "cosmwasm_2_0")]
+            QueryRequest::Grpc(_) => SystemResult::Err(SystemError::UnsupportedRequest {
+                kind: "GRPC".to_string(),
             }),
             #[cfg(feature = "stargate")]
             QueryRequest::Ibc(msg) => self.ibc.query(msg),
@@ -723,6 +673,7 @@ impl BankQuerier {
         }
     }
 
+    /// set a new balance for the given address and return the old balance
     pub fn update_balance(
         &mut self,
         addr: impl Into<String>,
@@ -872,6 +823,12 @@ impl IbcQuerier {
         }
     }
 
+    /// Update the querier's configuration
+    pub fn update(&mut self, port_id: impl Into<String>, channels: &[IbcChannel]) {
+        self.port_id = port_id.into();
+        self.channels = channels.to_vec();
+    }
+
     pub fn query(&self, request: &IbcQuery) -> QuerierResult {
         let contract_result: ContractResult<Binary> = match request {
             IbcQuery::Channel {
@@ -933,6 +890,18 @@ impl StakingQuerier {
             validators: validators.to_vec(),
             delegations: delegations.to_vec(),
         }
+    }
+
+    /// Update the querier's configuration
+    pub fn update(
+        &mut self,
+        denom: impl Into<String>,
+        validators: &[Validator],
+        delegations: &[FullDelegation],
+    ) {
+        self.denom = denom.into();
+        self.validators = validators.to_vec();
+        self.delegations = delegations.to_vec();
     }
 
     pub fn query(&self, request: &StakingQuery) -> QuerierResult {

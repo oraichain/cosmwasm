@@ -4,7 +4,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.0.0-beta.0] - 2023-12-21
 
 ### Added
 
@@ -72,6 +72,12 @@ and this project adheres to
 - cosmwasm-std: Make `IbcReceiveResponse::acknowledgement` optional and add
   `IbcReceiveResponse::without_ack` constructor. ([#1892])
 - cosmwasm-std: Add `std` feature and make it a default feature. ([#1971])
+- cosmwasm-std: Add `QueryRequest::Grpc` and deprecate `QueryRequest::Stargate`.
+  ([#1973])
+- cosmwasm-std: Remove `update_balance`, `set_denom_metadata`,
+  `set_withdraw_address`, `set_withdraw_addresses`, `clear_withdraw_addresses`,
+  `update_ibc` and `update_staking` from `MockQuerier` and expose the underlying
+  queriers directly. ([#1977])
 
 [#1874]: https://github.com/CosmWasm/cosmwasm/pull/1874
 [#1876]: https://github.com/CosmWasm/cosmwasm/pull/1876
@@ -91,6 +97,8 @@ and this project adheres to
 [#1949]: https://github.com/CosmWasm/cosmwasm/pull/1949
 [#1967]: https://github.com/CosmWasm/cosmwasm/pull/1967
 [#1971]: https://github.com/CosmWasm/cosmwasm/pull/1971
+[#1973]: https://github.com/CosmWasm/cosmwasm/pull/1973
+[#1977]: https://github.com/CosmWasm/cosmwasm/pull/1977
 
 ### Removed
 
@@ -712,7 +720,9 @@ and this project adheres to
 The CHANGELOG for versions before 1.0.0 was moved to
 [CHANGELOG-pre1.0.0.md](./CHANGELOG-pre1.0.0.md).
 
-[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v1.5.0...HEAD
+[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v2.0.0-beta.0...HEAD
+[2.0.0-beta.0]:
+  https://github.com/CosmWasm/cosmwasm/compare/v1.5.0...v2.0.0-beta.0
 [1.5.0]: https://github.com/CosmWasm/cosmwasm/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/CosmWasm/cosmwasm/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/CosmWasm/cosmwasm/compare/v1.3.3...v1.4.0
