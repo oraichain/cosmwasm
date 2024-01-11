@@ -163,7 +163,7 @@ impl<A: BackendApi, S: Storage, Q: Querier> Clone for Environment<A, S, Q> {
     fn clone(&self) -> Self {
         Environment {
             memory: None,
-            api: self.api,
+            api: self.api.clone(),
             gas_config: self.gas_config.clone(),
             poseidon: self.poseidon.clone(),
             interface_version: self.interface_version,
