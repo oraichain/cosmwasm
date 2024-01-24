@@ -72,7 +72,7 @@ workflows:
           matrix:
             parameters:
               # Run with MSRV and some modern stable Rust
-              rust-version: ["1.70.0", "1.73.0"]
+              rust-version: ["1.70.0", "1.75.0"]
       - benchmarking:
           requires:
             - package_vm
@@ -809,7 +809,7 @@ jobs:
 
   fmt_extra:
     docker:
-      - image: node:16.3.0-buster
+      - image: node:20.11.0-bookworm
     steps:
       - checkout
       - run:

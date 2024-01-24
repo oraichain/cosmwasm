@@ -4,14 +4,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0-beta.0] - 2023-12-21
+## [Unreleased]
+
+## [2.0.0-beta.1] - 2023-01-22
 
 ### Fixed
 
 - cosmwasm-vm: Fix memory increase issue (1.3 -> 1.4 regression) by avoiding the
   use of a long running Wasmer Engine. ([#1978])
+- cosmwasm-vm: Fix CWA-2023-004. ([#1996])
 
 [#1978]: https://github.com/CosmWasm/cosmwasm/issues/1978
+[#1996]: https://github.com/CosmWasm/cosmwasm/issues/1996
 
 ### Added
 
@@ -19,7 +23,7 @@ and this project adheres to
 - cosmwasm-std: Add optional memo field to `IbcMsg::Transfer`. ([#1878])
 - cosmwasm-std: Add `Reply::gas_used`. ([#1954])
 - cosmwasm-std: Add `SubMsgResponse::msg_responses` and deprecate
-  `SubMsgResponse::data`. ([#1903])
+  `SubMsgResponse::data`. Add new type `MsgResponse`. ([#1903])
 - cosmwasm-std: Add `cosmwasm_2_0` feature to enable 2.0 specific functionality.
   ([#1974])
 
@@ -89,6 +93,9 @@ and this project adheres to
   `::addr_canonicalize`/`::addr_humanize` for consistency.
 - cosmwasm-vm: Add `BackendApi::addr_validate` to avoid having to do two calls
   from Rust into Go.
+- cosmwasm-vm: Upgrade Wasmer to 4.2.5; Bump `MODULE_SERIALIZATION_VERSION` to
+  "v9". ([#1992])
+- cosmwasm-std: Rename `GovMsg::vote` to `GovMsg::option` ([#1999])
 
 [#1874]: https://github.com/CosmWasm/cosmwasm/pull/1874
 [#1876]: https://github.com/CosmWasm/cosmwasm/pull/1876
@@ -110,6 +117,8 @@ and this project adheres to
 [#1971]: https://github.com/CosmWasm/cosmwasm/pull/1971
 [#1973]: https://github.com/CosmWasm/cosmwasm/pull/1973
 [#1977]: https://github.com/CosmWasm/cosmwasm/pull/1977
+[#1992]: https://github.com/CosmWasm/cosmwasm/pull/1992
+[#1999]: https://github.com/CosmWasm/cosmwasm/pull/1999
 
 ### Removed
 
@@ -731,9 +740,9 @@ and this project adheres to
 The CHANGELOG for versions before 1.0.0 was moved to
 [CHANGELOG-pre1.0.0.md](./CHANGELOG-pre1.0.0.md).
 
-[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v2.0.0-beta.0...HEAD
-[2.0.0-beta.0]:
-  https://github.com/CosmWasm/cosmwasm/compare/v1.5.0...v2.0.0-beta.0
+[unreleased]: https://github.com/CosmWasm/cosmwasm/compare/v2.0.0-beta.1...HEAD
+[2.0.0-beta.1]:
+  https://github.com/CosmWasm/cosmwasm/compare/v1.5.0...v2.0.0-beta.1
 [1.5.0]: https://github.com/CosmWasm/cosmwasm/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/CosmWasm/cosmwasm/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/CosmWasm/cosmwasm/compare/v1.3.3...v1.4.0

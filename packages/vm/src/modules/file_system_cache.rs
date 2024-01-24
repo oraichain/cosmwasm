@@ -1,6 +1,7 @@
 use std::fs;
 use std::hash::Hash;
 use std::io;
+use std::panic::catch_unwind;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
@@ -57,7 +58,10 @@ use super::CachedModule;
 /// - **v8**:<br>
 ///   New version because of Wasmer 4.1.2 -> 4.2.2 upgrade.
 ///   Module compatibility between Wasmer versions is not guaranteed.
-const MODULE_SERIALIZATION_VERSION: &str = "v8";
+/// - **v9**:<br>
+///   New version because of Wasmer 4.2.2 -> 4.2.5 upgrade.
+///   Module compatibility between Wasmer versions is not guaranteed.
+const MODULE_SERIALIZATION_VERSION: &str = "v9";
 
 /// Representation of a directory that contains compiled Wasm artifacts.
 pub struct FileSystemCache {
@@ -176,9 +180,12 @@ impl FileSystemCache {
             .map_err(|_e| VmError::cache_err("Error creating modules directory"))?;
 
         let path = self.module_file(checksum);
-        module
-            .serialize_to_file(&path)
-            .map_err(|e| VmError::cache_err(format!("Error writing module to disk: {e}")))?;
+        catch_unwind(|| {
+            module
+                .serialize_to_file(&path)
+                .map_err(|e| VmError::cache_err(format!("Error writing module to disk: {e}")))
+        })
+        .map_err(|_| VmError::cache_err("Could not write module to disk"))??;
         let module_size = module_size(&path)?;
         Ok(module_size)
     }
@@ -311,7 +318,7 @@ mod tests {
         cache.store(&checksum, &module).unwrap();
 
         let mut globber = glob::glob(&format!(
-            "{}/v8-wasmer5/**/{}.module",
+            "{}/v9-wasmer5/**/{}.module",
             tmp_dir.path().to_string_lossy(),
             checksum
         ))
@@ -394,9 +401,9 @@ mod tests {
         assert_eq!(
             p.as_os_str(),
             if cfg!(windows) {
-                "modules\\v8-wasmer17\\x86_64-nintendo-fuchsia-gnu-coff-01E9F9FE"
+                "modules\\v9-wasmer17\\x86_64-nintendo-fuchsia-gnu-coff-01E9F9FE"
             } else {
-                "modules/v8-wasmer17/x86_64-nintendo-fuchsia-gnu-coff-01E9F9FE"
+                "modules/v9-wasmer17/x86_64-nintendo-fuchsia-gnu-coff-01E9F9FE"
             }
         );
     }
