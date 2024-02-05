@@ -6,6 +6,23 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- cosmwasm-std: Add new field `payload` to `SubMsg` and `Reply`. This is binary
+  data the contract can set in a contract specific format and get back then the
+  `reply` entry point is called. `SubMsg::with_payload` allows setting the
+  payload on an existing `SubMsg`. ([#2008])
+
+[#2008]: https://github.com/CosmWasm/cosmwasm/pull/2008
+
+### Changed
+
+- cosmwasm-vm: Limit total number of function parameters in
+  `check_wasm_functions` and increase max function count and max parameter
+  count. ([#1991])
+
+[#1991]: https://github.com/CosmWasm/cosmwasm/pull/1991
+
 ## [2.0.0-beta.1] - 2023-01-22
 
 ### Fixed
@@ -96,6 +113,8 @@ and this project adheres to
 - cosmwasm-vm: Upgrade Wasmer to 4.2.5; Bump `MODULE_SERIALIZATION_VERSION` to
   "v9". ([#1992])
 - cosmwasm-std: Rename `GovMsg::vote` to `GovMsg::option` ([#1999])
+- cosmwasm-vm: Read `Region` from Wasm memory as bytes and convert to `Region`
+  afterwards ([#2005])
 
 [#1874]: https://github.com/CosmWasm/cosmwasm/pull/1874
 [#1876]: https://github.com/CosmWasm/cosmwasm/pull/1876
@@ -119,6 +138,7 @@ and this project adheres to
 [#1977]: https://github.com/CosmWasm/cosmwasm/pull/1977
 [#1992]: https://github.com/CosmWasm/cosmwasm/pull/1992
 [#1999]: https://github.com/CosmWasm/cosmwasm/pull/1999
+[#2005]: https://github.com/CosmWasm/cosmwasm/pull/2005
 
 ### Removed
 

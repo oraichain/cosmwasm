@@ -345,15 +345,15 @@ mod tests {
         // Test data from https://github.com/randombit/botan/blob/2.9.0/src/tests/data/pubkey/ecdsa_key_recovery.vec
         // This is a high-s value (`0x81F1A4457589F30D76AB9F89E748A68C8A94C30FE0BAC8FB5C0B54EA70BF6D2F > 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0` is true)
         {
-            // let expected_x = "F3F8BB913AA68589A2C8C607A877AB05252ADBD963E1BE846DDEB8456942AEDC";
-            // let expected_y = "A2ED51F08CA3EF3DAC0A7504613D54CD539FC1B3CBC92453CD704B6A2D012B2C";
-            // let expected = hex::decode(format!("04{expected_x}{expected_y}")).unwrap();
+            let expected_x = "F3F8BB913AA68589A2C8C607A877AB05252ADBD963E1BE846DDEB8456942AEDC";
+            let expected_y = "A2ED51F08CA3EF3DAC0A7504613D54CD539FC1B3CBC92453CD704B6A2D012B2C";
+            let expected = hex::decode(format!("04{expected_x}{expected_y}")).unwrap();
             let r_s = hex!("E30F2E6A0F705F4FB5F8501BA79C7C0D3FAC847F1AD70B873E9797B17B89B39081F1A4457589F30D76AB9F89E748A68C8A94C30FE0BAC8FB5C0B54EA70BF6D2F");
             let recovery_param: u8 = 0;
             let message_hash =
                 hex!("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
-            let err = secp256k1_recover_pubkey(&message_hash, &r_s, recovery_param).unwrap_err();
-            assert_eq!(err.to_string(), "Crypto error: signature error");
+            let pubkey = secp256k1_recover_pubkey(&message_hash, &r_s, recovery_param).unwrap();
+            assert_eq!(pubkey, expected);
         }
 
         // Test data calculated via Secp256k1.createSignature from @cosmjs/crypto
