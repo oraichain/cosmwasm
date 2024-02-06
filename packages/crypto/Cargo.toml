@@ -15,16 +15,13 @@ default = []
 bench = false
 
 [dependencies]
-# Version pinned due to https://github.com/CosmWasm/cosmwasm/issues/2010
-k256 = { version = "=0.13.1", features = ["ecdsa"] }
+k256 = { version = "0.13.3", features = ["ecdsa"] }
 ed25519-zebra = "3"
 digest = "0.10"
 sha2 = "0.10"
 sha3 = "0.10"
 rand_core = { version = "0.6", features = ["getrandom"] }
 thiserror = "1.0.38"
-# Not used directly, but needed to bump transitive dependency, see: https://github.com/CosmWasm/cosmwasm/pull/1899 for details.
-ecdsa = "0.16.2"
 
 # zk import 
 ark-ff = { version = "^0.3.0", default-features = false }
@@ -44,6 +41,7 @@ criterion = "0.5.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive", "alloc"] }
 serde_json = "1.0.40"
 sha2 = "0.10"
+sha3 = "0.10"
 hex = "0.4"
 hex-literal = "0.3.1"
 english-numbers = "0.3"
